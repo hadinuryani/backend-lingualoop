@@ -14,4 +14,3 @@ func LoadJWTConfig() JWT {
 		ExpirationHours: jwtExpiration,
 	}
 }
-

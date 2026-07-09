@@ -20,4 +20,3 @@ func LoadAppConfig() App {
 		Debug: debugMode,
 	}
 }
-

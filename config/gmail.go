@@ -11,4 +11,3 @@ func LoadGmailConfig() Gmail {
 		AppPassword: getEnv("GMAIL_APP_PASSWORD", ""),
 	}
 }
-

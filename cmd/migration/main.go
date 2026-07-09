@@ -10,10 +10,8 @@ import (
 )
 
 func main() {
-	// Load configuration dari .env
 	config.LoadConfig()
 
-	// Koneksi ke database
 	db := database.ConnectDB()
 	defer db.Close()
 
@@ -25,17 +23,12 @@ func main() {
 		migrationsDir = os.Args[1]
 	}
 
-	log.Println("================================================")
 	log.Println("   LinguaLoop - Database Migration Runner")
-	log.Println("================================================")
-	log.Printf("📂 Folder migrasi: %s\n", migrationsDir)
+	log.Printf(" Folder migrasi: %s\n", migrationsDir)
 
 	// Jalankan semua migrasi yang pending
 	if err := database.RunMigrations(db, migrationsDir); err != nil {
-		log.Fatalf("❌ Migration gagal: %v\n", err)
+		log.Fatalf("Migration gagal: %v\n", err)
 	}
-
-	log.Println("================================================")
 	log.Println("   Migration selesai!")
-	log.Println("================================================")
 }

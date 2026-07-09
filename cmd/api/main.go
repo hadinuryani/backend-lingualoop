@@ -5,40 +5,37 @@ import (
 
 	"backend-lingualoop/config"
 	"backend-lingualoop/database"
+	"backend-lingualoop/internal/bootstrap"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Load configuration dari .env
+	// 1. Load Konfigurasi (.env)
 	cfg := config.LoadConfig()
 
-	// Inisialisasi koneksi ke database MySQL
-	database.ConnectDB()
+	// 2. Konek ke Database MySQL
+	db := database.ConnectDB()
+	defer db.Close()
 
-	// Set Gin mode berdasarkan environment
-	if cfg.App.Env == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	// 3. Inisialisasi Aplikasi (Router & Semua Modul via Bootstrap)
+	isProduction := cfg.App.Env == "production"
+	app := bootstrap.SetupApp(db, isProduction)
 
-	// Create Gin router
-	router := gin.Default()
-
-	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
+	// 4. Endpoint Health Check
+	app.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "ok",
 			"app":    cfg.App.Name,
 		})
 	})
 
-	// Print configuration info
+	// 5. Jalankan Server
 	log.Printf("Starting %s on port %s\n", cfg.App.Name, cfg.App.Port)
 	log.Printf("Environment: %s\n", cfg.App.Env)
 	log.Printf("Database: %s@%s:%s\n", cfg.Database.User, cfg.Database.Host, cfg.Database.Port)
 
-	// Run server
-	if err := router.Run(":" + cfg.App.Port); err != nil {
+	if err := app.Run(":" + cfg.App.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

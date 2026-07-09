@@ -25,4 +25,3 @@ func LoadDatabaseConfig() Database {
 		MaxIdleConnections: maxIdleConn,
 	}
 }
-

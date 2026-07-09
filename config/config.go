@@ -39,5 +39,3 @@ func GetConfig() *Config {
 	}
 	return cfg
 }
-
-
