@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS student_assignments (
 
     created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     -- 1 siswa = 1 pengerjaan per tugas
     UNIQUE KEY uk_student_assignments (assignment_id, student_id),

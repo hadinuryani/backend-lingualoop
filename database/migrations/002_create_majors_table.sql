@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS majors (
     description     TEXT,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_majors_code (code),
     UNIQUE KEY uk_majors_name (name)

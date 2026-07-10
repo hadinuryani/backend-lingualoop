@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS student_final_grades (
 
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     -- 1 nilai akhir per siswa per mapel per semester
     UNIQUE KEY uk_student_final_grades (student_id, subject_id, academic_year_id, semester),

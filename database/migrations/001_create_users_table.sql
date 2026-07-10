@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_at   DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_users_email (email),
     UNIQUE KEY uk_users_username (username),

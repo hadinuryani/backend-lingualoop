@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS students (
     status          ENUM('ACTIVE', 'GRADUATED', 'TRANSFER', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_students_user_id (user_id),
     UNIQUE KEY uk_students_nis (nis),

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS questions (
     sort_order      INT NOT NULL DEFAULT 0,        -- Urutan tampil soal
 
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     INDEX idx_questions_assignment (assignment_id),
     INDEX idx_questions_type (question_type),

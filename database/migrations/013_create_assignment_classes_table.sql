@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS assignment_classes (
     assignment_id   CHAR(36) NOT NULL,
     class_id        CHAR(36) NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_assignment_classes (assignment_id, class_id),
     INDEX idx_ac_assignment (assignment_id),

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS materials (
 
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     INDEX idx_materials_teacher (teacher_id),
     INDEX idx_materials_subject (subject_id),

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS material_classes (
     material_id     CHAR(36) NOT NULL,
     class_id        CHAR(36) NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_material_classes (material_id, class_id),
     INDEX idx_mc_material (material_id),

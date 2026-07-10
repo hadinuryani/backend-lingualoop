@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     details         JSON,                              -- Detail tambahan dalam JSON
     ip_address      VARCHAR(45),
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     INDEX idx_al_user (user_id),
     INDEX idx_al_action (action),

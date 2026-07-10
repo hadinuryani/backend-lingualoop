@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS grade_components (
 
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     -- 1 tipe komponen per mapel per kelas per semester
     UNIQUE KEY uk_grade_components (subject_id, class_id, academic_year_id, semester, assignment_type),

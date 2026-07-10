@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS classes (
     is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_classes_name_year (class_name, academic_year_id),
     INDEX idx_classes_academic_year (academic_year_id),

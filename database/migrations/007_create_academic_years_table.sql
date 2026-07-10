@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS academic_years (
 
     created_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     UNIQUE KEY uk_academic_years_year (year),
     INDEX idx_academic_years_status (status)

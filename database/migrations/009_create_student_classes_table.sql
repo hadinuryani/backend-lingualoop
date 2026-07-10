@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS student_classes (
     academic_year_id    CHAR(36) NOT NULL,
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     -- 1 siswa = 1 kelas per tahun ajaran
     UNIQUE KEY uk_student_classes_student_year (student_id, academic_year_id),

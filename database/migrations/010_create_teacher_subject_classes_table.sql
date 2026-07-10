@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS teacher_subject_classes (
     classroom           VARCHAR(100),                -- ruangan mengajar
     status              VARCHAR(20) NOT NULL DEFAULT 'Aktif',
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          DATETIME NULL DEFAULT NULL,
 
     -- 1 mapel = 1 guru per kelas per tahun ajaran
     UNIQUE KEY uk_tsc_subject_class_year (subject_id, class_id, academic_year_id),
