@@ -10,6 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @title           LinguaLoop API
+// @version         1.0
+// @description     API Documentation for LinguaLoop E-Learning Platform.
+// @host            localhost:8080
+// @BasePath        /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	// 1. Load Konfigurasi (.env)
 	cfg := config.LoadConfig()
