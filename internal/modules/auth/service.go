@@ -1,14 +1,15 @@
 package auth
 
 import (
-	"errors"
+	"context"
+	"log/slog"
 
 	"backend-lingualoop/pkg/jwt"
 	"backend-lingualoop/pkg/security"
 )
 
 type Service interface {
-	Login(req LoginRequest) (*LoginResponse, error)
+	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
 }
 
 type service struct {
@@ -19,28 +20,29 @@ func NewService(repo Repository) Service {
 	return &service{repo}
 }
 
-func (s *service) Login(req LoginRequest) (*LoginResponse, error) {
+func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 
-	user, err := s.repo.FindByEmail(req.Email)
+	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, errors.New("terjadi kesalahan pada sistem, silakan coba lagi")
+		slog.Error("Database query failed during login", "error", err, "email", req.Email)
+		return nil, ErrSystemFail
 	}
 
 	if user == nil {
-		return nil, errors.New("email atau password salah")
+		return nil, ErrInvalidCreds
 	}
 
 	if !user.IsActive {
-		return nil, errors.New("akun Anda dinonaktifkan, silakan hubungi admin")
+		return nil, ErrAccountDisabled
 	}
 
 	if !security.CheckPassword(req.Password, user.PasswordHash) {
-		return nil, errors.New("email atau password salah")
+		return nil, ErrInvalidCreds
 	}
 
 	token, err := jwt.GenerateToken(user.ID, user.Email, user.Username, user.Role)
 	if err != nil {
-		return nil, errors.New("gagal membuat sesi login")
+		return nil, ErrSessionFail
 	}
 
 	userDTO := UserDTO{

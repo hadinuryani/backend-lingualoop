@@ -1,48 +1,61 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
+
+	"backend-lingualoop/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Handler menangani HTTP request dan response untuk modul auth
 type Handler struct {
 	service Service
 }
 
-// NewHandler membuat instance baru dari auth handler
 func NewHandler(service Service) *Handler {
 	return &Handler{service}
 }
 
-// Login menangani request endpoint POST /login
+// Login godoc
+// @Summary      User Login
+// @Description  Authenticate user with email and password to get JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body LoginRequest true "Login Credentials"
+// @Success      200 {object} response.DefaultResponse{data=LoginResponse}
+// @Failure      400 {object} response.DefaultResponse
+// @Failure      401 {object} response.DefaultResponse
+// @Failure      403 {object} response.DefaultResponse
+// @Failure      500 {object} response.DefaultResponse
+// @Router       /auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 
-	// 1. Parse dan Validasi JSON Input (Tugas Handler)
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format email atau password tidak valid"})
+		response.ValidationError(c, err)
 		return
 	}
 
-	// 2. Lempar ke Service untuk diproses (Business Logic)
-	res, err := h.service.Login(req)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
 
-	// 3. Tangani hasil dari service (Tugas Handler)
+	res, err := h.service.Login(ctx, req)
 	if err != nil {
-		// Menggunakan StatusUnauthorized untuk error credential (bisa disesuaikan di service if needed)
 		statusCode := http.StatusUnauthorized
-		if err.Error() == "terjadi kesalahan pada sistem, silakan coba lagi" {
+
+		if errors.Is(err, ErrSystemFail) || errors.Is(err, ErrSessionFail) {
 			statusCode = http.StatusInternalServerError
-		} else if err.Error() == "akun Anda dinonaktifkan, silakan hubungi admin" {
+		} else if errors.Is(err, ErrAccountDisabled) {
 			statusCode = http.StatusForbidden
 		}
 
-		c.JSON(statusCode, gin.H{"error": err.Error()})
+		response.Error(c, statusCode, err.Error(), nil)
 		return
 	}
 
-	// 4. Kembalikan JSON sukses (Tugas Handler)
-	c.JSON(http.StatusOK, res)
+	response.Success(c, http.StatusOK, "Login berhasil", res)
 }

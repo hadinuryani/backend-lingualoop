@@ -1,38 +1,47 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 )
 
-// Repository interface untuk abstraction (berguna untuk testing/mocking)
 type Repository interface {
-	FindByEmail(email string) (*User, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
 }
 
-// repository mengimplementasikan Repository interface
 type repository struct {
 	db *sql.DB
 }
 
-// NewRepository membuat instance baru dari auth repository
 func NewRepository(db *sql.DB) Repository {
-	return &repository{db}
+	return &repository{
+		db: db,
+	}
 }
 
-// FindByEmail mencari user berdasarkan alamat email
-func (r *repository) FindByEmail(email string) (*User, error) {
-	query := `
-		SELECT id, email, username, password_hash, full_name, role, avatar_url, is_active
-		FROM users
-		WHERE email = ?
-		LIMIT 1
-	`
+const selectUser = `
+SELECT 
+	id, 
+	email, 
+	username, 
+	password_hash, 
+	full_name, 
+	role, 
+	avatar_url, 
+	is_active
+FROM users
+`
 
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+func scanUser(scanner scanner) (*User, error) {
 	var user User
 	var avatarURL sql.NullString
 
-	err := r.db.QueryRow(query, email).Scan(
+	err := scanner.Scan(
 		&user.ID,
 		&user.Email,
 		&user.Username,
@@ -42,12 +51,8 @@ func (r *repository) FindByEmail(email string) (*User, error) {
 		&avatarURL,
 		&user.IsActive,
 	)
-
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // User tidak ditemukan
-		}
-		return nil, err // Error lain dari database
+		return nil, err
 	}
 
 	if avatarURL.Valid {
@@ -55,4 +60,19 @@ func (r *repository) FindByEmail(email string) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+// FindByEmail mencari user berdasarkan alamat email
+func (r *repository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	query := selectUser + `WHERE email = ? AND deleted_at IS NULL LIMIT 1`
+
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, email))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // User tidak ditemukan
+		}
+		return nil, err // Error lain dari database
+	}
+
+	return user, nil
 }

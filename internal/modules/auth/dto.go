@@ -9,7 +9,7 @@ type UserDTO struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
 	Username  string `json:"username"`
-	FullName  string `json:"name"`
+	FullName  string `json:"full_name"`
 	Role      string `json:"role"`
 	AvatarURL string `json:"avatar_url,omitempty"`
 	IsActive  bool   `json:"is_active"`
