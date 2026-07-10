@@ -1,0 +1,1331 @@
+basePath: /api/v1
+definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/auth.UserDTO'
+    type: object
+  auth.UserDTO:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  class.ClassBatchRequest:
+    properties:
+      academic_year_id:
+        type: string
+      capacity:
+        type: integer
+      count:
+        minimum: 1
+        type: integer
+      level_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      major_code:
+        description: 'Untuk digabung dalam nama, ex: IPA'
+        type: string
+      major_id:
+        type: string
+    required:
+    - academic_year_id
+    - count
+    - level_ids
+    - major_code
+    - major_id
+    type: object
+  class.ClassRequest:
+    properties:
+      academic_year_id:
+        type: string
+      capacity:
+        type: integer
+      class_name:
+        type: string
+      classroom:
+        type: string
+      homeroom_teacher_id:
+        type: string
+      level_id:
+        type: string
+      major_id:
+        type: string
+    required:
+    - academic_year_id
+    - class_name
+    - level_id
+    - major_id
+    type: object
+  class.ClassResponse:
+    properties:
+      academic_year_id:
+        type: string
+      capacity:
+        type: integer
+      class_name:
+        type: string
+      classroom:
+        type: string
+      created_at:
+        type: string
+      homeroom_teacher_id:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      level_id:
+        type: string
+      major_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  class.ClassUpdateRequest:
+    properties:
+      capacity:
+        type: integer
+      homeroom_teacher_id:
+        type: string
+    type: object
+  major.MajorRequest:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  major.MajorResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  response.DefaultResponse:
+    properties:
+      data: {}
+      errors: {}
+      message:
+        type: string
+      meta: {}
+      success:
+        type: boolean
+    type: object
+  student.StudentRequest:
+    properties:
+      address_detail:
+        type: string
+      address_region:
+        type: string
+      birth_date:
+        description: YYYY-MM-DD
+        type: string
+      birth_place:
+        type: string
+      class_level:
+        type: string
+      full_name:
+        type: string
+      gender:
+        enum:
+        - L
+        - P
+        type: string
+      major_id:
+        type: string
+      nis:
+        type: string
+      phone:
+        type: string
+      photo:
+        type: string
+    required:
+    - class_level
+    - full_name
+    - gender
+    - major_id
+    - nis
+    type: object
+  student.StudentResponse:
+    properties:
+      address_detail:
+        type: string
+      address_region:
+        type: string
+      birth_date:
+        description: YYYY-MM-DD
+        type: string
+      birth_place:
+        type: string
+      class_level:
+        type: string
+      created_at:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      major_id:
+        type: string
+      nis:
+        type: string
+      phone:
+        type: string
+      photo:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  subject.SubjectRequest:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      level_id:
+        description: Boleh kosong
+        type: string
+      major_id:
+        description: Boleh kosong (umum)
+        type: string
+      name:
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  subject.SubjectResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      level_id:
+        type: string
+      major_id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  teacher.TeacherRequest:
+    properties:
+      address_detail:
+        type: string
+      address_region:
+        type: string
+      birth_date:
+        description: YYYY-MM-DD
+        type: string
+      birth_place:
+        type: string
+      full_name:
+        type: string
+      gender:
+        enum:
+        - L
+        - P
+        type: string
+      nip:
+        type: string
+      phone:
+        type: string
+    required:
+    - full_name
+    - gender
+    - nip
+    type: object
+  teacher.TeacherResponse:
+    properties:
+      address_detail:
+        type: string
+      address_region:
+        type: string
+      birth_date:
+        description: YYYY-MM-DD
+        type: string
+      birth_place:
+        type: string
+      created_at:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      nip:
+        type: string
+      phone:
+        type: string
+      photo:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API Documentation for LinguaLoop E-Learning Platform.
+  title: LinguaLoop API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password to get JWT token
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: User Login
+      tags:
+      - Auth
+  /classes:
+    get:
+      description: Get a list of all classes
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/class.ClassResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get all classes
+      tags:
+      - Classes
+    post:
+      consumes:
+      - application/json
+      description: Add a single new class to the system
+      parameters:
+      - description: Class Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/class.ClassRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/class.ClassResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create new class
+      tags:
+      - Classes
+  /classes/{id}:
+    delete:
+      description: Soft delete a class by ID
+      parameters:
+      - description: Class ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Delete class
+      tags:
+      - Classes
+    get:
+      description: Get detailed information of a class by its ID
+      parameters:
+      - description: Class ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/class.ClassResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get class by ID
+      tags:
+      - Classes
+    put:
+      consumes:
+      - application/json
+      description: Update existing class capacity or homeroom teacher
+      parameters:
+      - description: Class ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Class Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/class.ClassUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/class.ClassResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update class
+      tags:
+      - Classes
+  /classes/batch:
+    post:
+      consumes:
+      - application/json
+      description: Auto-generate multiple classes alphabetically per level based on
+        existing DB records
+      parameters:
+      - description: Batch Class Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/class.ClassBatchRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/class.ClassResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create classes in batch
+      tags:
+      - Classes
+  /majors:
+    get:
+      description: Retrieve a list of all majors
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/major.MajorResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get All Majors
+      tags:
+      - Majors
+    post:
+      consumes:
+      - application/json
+      description: Create a new major
+      parameters:
+      - description: Major Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/major.MajorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/major.MajorResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create Major
+      tags:
+      - Majors
+  /majors/{id}:
+    delete:
+      description: Delete a major by ID
+      parameters:
+      - description: Major ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Delete Major
+      tags:
+      - Majors
+    put:
+      consumes:
+      - application/json
+      description: Update an existing major by ID
+      parameters:
+      - description: Major ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Major Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/major.MajorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/major.MajorResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update Major
+      tags:
+      - Majors
+  /students:
+    get:
+      description: Get a list of all students
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/student.StudentResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get all students
+      tags:
+      - Students
+    post:
+      consumes:
+      - application/json
+      description: Add a new student to the system and auto-generate user account
+      parameters:
+      - description: Student Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/student.StudentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/student.StudentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create new student
+      tags:
+      - Students
+  /students/{id}:
+    delete:
+      description: Soft delete a student by ID
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Delete student
+      tags:
+      - Students
+    get:
+      description: Get detailed information of a student by their ID
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/student.StudentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get student by ID
+      tags:
+      - Students
+    put:
+      consumes:
+      - application/json
+      description: Update existing student information
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Student Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/student.StudentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/student.StudentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update student
+      tags:
+      - Students
+  /students/{id}/status:
+    patch:
+      description: Change student status and auto-sync login capabilities
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New Status (ACTIVE/GRADUATED/TRANSFER/INACTIVE)
+        in: query
+        name: status
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/student.StudentResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update student status
+      tags:
+      - Students
+  /subjects:
+    get:
+      description: Get a list of all subjects
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/subject.SubjectResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get all subjects
+      tags:
+      - Subjects
+    post:
+      consumes:
+      - application/json
+      description: Add a new subject to the system
+      parameters:
+      - description: Subject Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/subject.SubjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/subject.SubjectResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create new subject
+      tags:
+      - Subjects
+  /subjects/{id}:
+    delete:
+      description: Soft delete a subject by ID
+      parameters:
+      - description: Subject ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Delete subject
+      tags:
+      - Subjects
+    get:
+      description: Get detailed information of a subject by its ID
+      parameters:
+      - description: Subject ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/subject.SubjectResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get subject by ID
+      tags:
+      - Subjects
+    put:
+      consumes:
+      - application/json
+      description: Update existing subject data
+      parameters:
+      - description: Subject ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Subject Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/subject.SubjectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/subject.SubjectResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update subject
+      tags:
+      - Subjects
+  /teachers:
+    get:
+      description: Get a list of all teachers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/teacher.TeacherResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get all teachers
+      tags:
+      - Teachers
+    post:
+      consumes:
+      - application/json
+      description: Add a new teacher to the system and auto-generate user account
+      parameters:
+      - description: Teacher Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.TeacherRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/teacher.TeacherResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Create new teacher
+      tags:
+      - Teachers
+  /teachers/{id}:
+    delete:
+      description: Soft delete a teacher by ID
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Delete teacher
+      tags:
+      - Teachers
+    get:
+      description: Get detailed information of a teacher by their ID
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/teacher.TeacherResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Get teacher by ID
+      tags:
+      - Teachers
+    put:
+      consumes:
+      - application/json
+      description: Update existing teacher information
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Teacher Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.TeacherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/teacher.TeacherResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Update teacher
+      tags:
+      - Teachers
+  /teachers/{id}/status:
+    patch:
+      description: Change teacher status between ACTIVE and INACTIVE
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/teacher.TeacherResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      summary: Toggle teacher status
+      tags:
+      - Teachers
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
