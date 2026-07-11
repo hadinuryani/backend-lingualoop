@@ -7,7 +7,7 @@ import (
 )
 
 type Repository interface {
-	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindByIdentifier(ctx context.Context, identifier string) (*User, error)
 }
 
 type repository struct {
@@ -62,11 +62,11 @@ func scanUser(scanner scanner) (*User, error) {
 	return &user, nil
 }
 
-// FindByEmail mencari user berdasarkan alamat email
-func (r *repository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	query := selectUser + `WHERE email = ? AND deleted_at IS NULL LIMIT 1`
+// FindByIdentifier mencari user berdasarkan username atau alamat email
+func (r *repository) FindByIdentifier(ctx context.Context, identifier string) (*User, error) {
+	query := selectUser + `WHERE (email = ? OR username = ?) AND deleted_at IS NULL LIMIT 1`
 
-	user, err := scanUser(r.db.QueryRowContext(ctx, query, email))
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, identifier, identifier))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // User tidak ditemukan

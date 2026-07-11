@@ -22,9 +22,9 @@ func NewService(repo Repository) Service {
 
 func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 
-	user, err := s.repo.FindByEmail(ctx, req.Email)
+	user, err := s.repo.FindByIdentifier(ctx, req.Username)
 	if err != nil {
-		slog.Error("Database query failed during login", "error", err, "email", req.Email)
+		slog.Error("Database query failed during login", "error", err, "identifier", req.Username)
 		return nil, ErrSystemFail
 	}
 
