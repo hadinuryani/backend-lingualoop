@@ -11,6 +11,7 @@ import (
 	"backend-lingualoop/internal/modules/student"
 	"backend-lingualoop/internal/modules/subject"
 	"backend-lingualoop/internal/modules/teacher"
+	"backend-lingualoop/internal/modules/academic_year"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -40,7 +41,7 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		student.RegisterRoute(v1, db)
 		class.RegisterRoute(v1, db)
 		subject.RegisterRoute(v1, db)
-
+		academic_year.RegisterRoute(v1, db)
 
 	}
 
