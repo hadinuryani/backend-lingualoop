@@ -1,5 +1,92 @@
 basePath: /api/v1
 definitions:
+  academic_year.AcademicYearRequest:
+    properties:
+      end_date:
+        type: string
+      semester_ganjil_assessment:
+        type: string
+      semester_ganjil_kbm:
+        type: string
+      semester_ganjil_start:
+        type: string
+      semester_genap_assessment:
+        type: string
+      semester_genap_kbm:
+        type: string
+      semester_genap_start:
+        type: string
+      start_date:
+        type: string
+      year:
+        type: string
+    required:
+    - end_date
+    - start_date
+    - year
+    type: object
+  academic_year.AcademicYearResponse:
+    properties:
+      created_at:
+        type: string
+      end_date:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      semester:
+        description: '"GANJIL", "GENAP", atau "-"'
+        type: string
+      semester_ganjil:
+        $ref: '#/definitions/academic_year.SemesterData'
+      semester_genap:
+        $ref: '#/definitions/academic_year.SemesterData'
+      start_date:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      year:
+        type: string
+    type: object
+  academic_year.CloseSemesterRequest:
+    properties:
+      semester:
+        description: ganjil atau genap
+        enum:
+        - ganjil
+        - genap
+        type: string
+    required:
+    - semester
+    type: object
+  academic_year.SemesterData:
+    properties:
+      end_assessment:
+        type: string
+      end_kbm:
+        type: string
+      start_date:
+        type: string
+      status:
+        type: string
+    type: object
+  academic_year.SemesterStatusRequest:
+    properties:
+      semester:
+        description: ganjil atau genap
+        enum:
+        - ganjil
+        - genap
+        type: string
+      status:
+        type: string
+    required:
+    - semester
+    - status
+    type: object
   auth.LoginRequest:
     properties:
       email:
@@ -329,6 +416,331 @@ info:
   title: LinguaLoop API
   version: "1.0"
 paths:
+  /academic-years:
+    get:
+      description: Get a list of all academic years including nested semester data
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/academic_year.AcademicYearResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all academic years
+      tags:
+      - Academic Years
+    post:
+      consumes:
+      - application/json
+      description: Add a new academic year to the system
+      parameters:
+      - description: Academic Year Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/academic_year.AcademicYearRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Create new academic year
+      tags:
+      - Academic Years
+  /academic-years/{id}:
+    delete:
+      description: Soft delete an academic year by ID. Fails if the year is active.
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete academic year
+      tags:
+      - Academic Years
+    get:
+      description: Get detailed information of an academic year by its ID
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get academic year by ID
+      tags:
+      - Academic Years
+    put:
+      consumes:
+      - application/json
+      description: Update existing academic year data
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Academic Year Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/academic_year.AcademicYearRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Update academic year
+      tags:
+      - Academic Years
+  /academic-years/{id}/activate:
+    put:
+      description: Activate an academic year and set semester ganjil to active. Fails
+        if another year is already active.
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Activate academic year
+      tags:
+      - Academic Years
+  /academic-years/{id}/close-semester:
+    put:
+      consumes:
+      - application/json
+      description: Close a semester (if ganjil -> unlocks genap, if genap -> changes
+        year status to Menunggu Kenaikan)
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Close Semester Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/academic_year.CloseSemesterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Close semester
+      tags:
+      - Academic Years
+  /academic-years/{id}/semester-status:
+    put:
+      consumes:
+      - application/json
+      description: Change the status of ganjil or genap semester
+      parameters:
+      - description: Academic Year ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Semester Status Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/academic_year.SemesterStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.AcademicYearResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Update semester status
+      tags:
+      - Academic Years
   /auth/login:
     post:
       consumes:
@@ -393,6 +805,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get all classes
       tags:
       - Classes
@@ -431,6 +845,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create new class
       tags:
       - Classes
@@ -462,6 +878,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Delete class
       tags:
       - Classes
@@ -497,6 +915,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get class by ID
       tags:
       - Classes
@@ -540,6 +960,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update class
       tags:
       - Classes
@@ -578,6 +1000,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create classes in batch
       tags:
       - Classes
@@ -602,6 +1026,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get All Majors
       tags:
       - Majors
@@ -640,6 +1066,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create Major
       tags:
       - Majors
@@ -671,6 +1099,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Delete Major
       tags:
       - Majors
@@ -718,6 +1148,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update Major
       tags:
       - Majors
@@ -742,6 +1174,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get all students
       tags:
       - Students
@@ -780,6 +1214,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create new student
       tags:
       - Students
@@ -811,6 +1247,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Delete student
       tags:
       - Students
@@ -846,6 +1284,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get student by ID
       tags:
       - Students
@@ -893,6 +1333,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update student
       tags:
       - Students
@@ -934,6 +1376,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update student status
       tags:
       - Students
@@ -958,6 +1402,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get all subjects
       tags:
       - Subjects
@@ -996,6 +1442,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create new subject
       tags:
       - Subjects
@@ -1027,6 +1475,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Delete subject
       tags:
       - Subjects
@@ -1062,6 +1512,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get subject by ID
       tags:
       - Subjects
@@ -1109,6 +1561,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update subject
       tags:
       - Subjects
@@ -1133,6 +1587,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get all teachers
       tags:
       - Teachers
@@ -1171,6 +1627,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Create new teacher
       tags:
       - Teachers
@@ -1202,6 +1660,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Delete teacher
       tags:
       - Teachers
@@ -1237,6 +1697,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Get teacher by ID
       tags:
       - Teachers
@@ -1284,6 +1746,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Update teacher
       tags:
       - Teachers
@@ -1320,6 +1784,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
       summary: Toggle teacher status
       tags:
       - Teachers

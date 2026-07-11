@@ -28,6 +28,7 @@ func NewHandler(service Service) *Handler {
 // @Success      200 {object} response.DefaultResponse{data=[]StudentResponse}
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students [get]
+// @Security      BearerAuth
 func (h *Handler) GetAll(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -52,6 +53,7 @@ func (h *Handler) GetAll(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students/{id} [get]
+// @Security      BearerAuth
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -87,6 +89,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Failure      409 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students [post]
+// @Security      BearerAuth
 func (h *Handler) Create(c *gin.Context) {
 	var req StudentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -124,6 +127,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Failure      409 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students/{id} [put]
+// @Security      BearerAuth
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -167,6 +171,7 @@ func (h *Handler) Update(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students/{id}/status [patch]
+// @Security      BearerAuth
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -213,6 +218,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /students/{id} [delete]
+// @Security      BearerAuth
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {

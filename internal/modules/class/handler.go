@@ -28,6 +28,7 @@ func NewHandler(service Service) *Handler {
 // @Success      200 {object} response.DefaultResponse{data=[]ClassResponse}
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes [get]
+// @Security      BearerAuth
 func (h *Handler) GetAll(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -52,6 +53,7 @@ func (h *Handler) GetAll(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes/{id} [get]
+// @Security      BearerAuth
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -87,6 +89,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Failure      409 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes [post]
+// @Security      BearerAuth
 func (h *Handler) Create(c *gin.Context) {
 	var req ClassRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -123,6 +126,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Failure      400 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes/batch [post]
+// @Security      BearerAuth
 func (h *Handler) CreateBatch(c *gin.Context) {
 	var req ClassBatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -155,6 +159,7 @@ func (h *Handler) CreateBatch(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes/{id} [put]
+// @Security      BearerAuth
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -195,6 +200,7 @@ func (h *Handler) Update(c *gin.Context) {
 // @Failure      404 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
 // @Router       /classes/{id} [delete]
+// @Security      BearerAuth
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {

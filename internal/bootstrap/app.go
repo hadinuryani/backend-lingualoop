@@ -3,8 +3,9 @@ package bootstrap
 import (
 	"database/sql"
 
-	_ "backend-lingualoop/docs" 
+	_ "backend-lingualoop/docs"
 	"backend-lingualoop/internal/middleware"
+	"backend-lingualoop/internal/modules/academic_year"
 	"backend-lingualoop/internal/modules/auth"
 	"backend-lingualoop/internal/modules/class"
 	"backend-lingualoop/internal/modules/major"
@@ -34,13 +35,20 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 	v1 := api.Group("/v1")
 	{
 		// Registrasi Modul Fitur untuk V1
+		// Register Public Route
 		auth.RegisterRoute(v1, db)
-		major.RegisterRoute(v1, db)
-		teacher.RegisterRoute(v1, db)
-		student.RegisterRoute(v1, db)
-		class.RegisterRoute(v1, db)
-		subject.RegisterRoute(v1, db)
 
+		// Register Protected Admin Routes
+		adminProtected := v1.Group("")
+		adminProtected.Use(middleware.RequireAuth())
+		adminProtected.Use(middleware.RequireRole("admin"))
+
+		major.RegisterRoute(adminProtected, db)
+		teacher.RegisterRoute(adminProtected, db)
+		student.RegisterRoute(adminProtected, db)
+		class.RegisterRoute(adminProtected, db)
+		subject.RegisterRoute(adminProtected, db)
+		academic_year.RegisterRoute(adminProtected, db)
 
 	}
 
