@@ -1,14 +1,15 @@
 package auth
 
 import (
+	"backend-lingualoop/pkg/jwt"
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoute(router *gin.RouterGroup, db *sql.DB) {
+func RegisterRoute(router *gin.RouterGroup, db *sql.DB, jwtManager jwt.Manager) {
 	repo := NewRepository(db)
-	service := NewService(repo)
+	service := NewService(repo, jwtManager)
 	handler := NewHandler(service)
 
 	// 2. Daftarkan routes

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"backend-lingualoop/config"
-
 	gojwt "github.com/golang-jwt/jwt/v5"
 )
 
@@ -18,13 +16,27 @@ type Claims struct {
 	gojwt.RegisteredClaims
 }
 
-func GenerateToken(userID, email, username, role string) (string, error) {
-	cfg := config.GetConfig()
+type Manager interface {
+	GenerateToken(userID, email, username, role string) (string, error)
+	ValidateToken(tokenString string) (*Claims, error)
+}
 
-	expirationHours := cfg.JWT.ExpirationHours
+type manager struct {
+	secret          string
+	expirationHours int
+}
+
+func NewManager(secret string, expirationHours int) Manager {
 	if expirationHours <= 0 {
 		expirationHours = 24
 	}
+	return &manager{
+		secret:          secret,
+		expirationHours: expirationHours,
+	}
+}
+
+func (m *manager) GenerateToken(userID, email, username, role string) (string, error) {
 
 	now := time.Now()
 	claims := Claims{
@@ -36,12 +48,12 @@ func GenerateToken(userID, email, username, role string) (string, error) {
 			Issuer:    "lingualoop",
 			Subject:   userID,
 			IssuedAt:  gojwt.NewNumericDate(now),
-			ExpiresAt: gojwt.NewNumericDate(now.Add(time.Duration(expirationHours) * time.Hour)),
+			ExpiresAt: gojwt.NewNumericDate(now.Add(time.Duration(m.expirationHours) * time.Hour)),
 		},
 	}
 
 	token := gojwt.NewWithClaims(gojwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(cfg.JWT.Secret))
+	signedToken, err := token.SignedString([]byte(m.secret))
 	if err != nil {
 		return "", fmt.Errorf("gagal membuat token: %w", err)
 	}
@@ -49,19 +61,17 @@ func GenerateToken(userID, email, username, role string) (string, error) {
 	return signedToken, nil
 }
 
-func ValidateToken(tokenString string) (*Claims, error) {
+func (m *manager) ValidateToken(tokenString string) (*Claims, error) {
 	if tokenString == "" {
 		return nil, errors.New("token tidak boleh kosong")
 	}
-
-	cfg := config.GetConfig()
 
 	token, err := gojwt.ParseWithClaims(tokenString, &Claims{}, func(token *gojwt.Token) (interface{}, error) {
 
 		if _, ok := token.Method.(*gojwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("metode signing tidak valid: %v", token.Header["alg"])
 		}
-		return []byte(cfg.JWT.Secret), nil
+		return []byte(m.secret), nil
 	})
 
 	if err != nil {

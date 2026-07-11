@@ -13,11 +13,12 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo       Repository
+	jwtManager jwt.Manager
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo}
+func NewService(repo Repository, jwtManager jwt.Manager) Service {
+	return &service{repo, jwtManager}
 }
 
 func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
@@ -40,7 +41,7 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		return nil, ErrInvalidCreds
 	}
 
-	token, err := jwt.GenerateToken(user.ID, user.Email, user.Username, user.Role)
+	token, err := s.jwtManager.GenerateToken(user.ID, user.Email, user.Username, user.Role)
 	if err != nil {
 		return nil, ErrSessionFail
 	}

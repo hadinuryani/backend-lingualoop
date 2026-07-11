@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"database/sql"
 
+	"backend-lingualoop/config"
 	_ "backend-lingualoop/docs"
 	"backend-lingualoop/internal/middleware"
 	"backend-lingualoop/internal/modules/academic_year"
@@ -12,6 +13,7 @@ import (
 	"backend-lingualoop/internal/modules/student"
 	"backend-lingualoop/internal/modules/subject"
 	"backend-lingualoop/internal/modules/teacher"
+	"backend-lingualoop/pkg/jwt"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -35,12 +37,15 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 	v1 := api.Group("/v1")
 	{
 		// Registrasi Modul Fitur untuk V1
+		cfg := config.GetConfig()
+		jwtManager := jwt.NewManager(cfg.JWT.Secret, cfg.JWT.ExpirationHours)
+
 		// Register Public Route
-		auth.RegisterRoute(v1, db)
+		auth.RegisterRoute(v1, db, jwtManager)
 
 		// Register Protected Admin Routes
 		adminProtected := v1.Group("")
-		adminProtected.Use(middleware.RequireAuth())
+		adminProtected.Use(middleware.RequireAuth(jwtManager, db))
 		adminProtected.Use(middleware.RequireRole("admin"))
 
 		major.RegisterRoute(adminProtected, db)

@@ -11,7 +11,7 @@ import (
 // RequireRole membatasi akses hanya untuk role tertentu
 func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		roleVal, exists := c.Get("role")
+		roleVal, exists := c.Get(CtxRole)
 		if !exists {
 			response.Error(c, http.StatusUnauthorized, "Akses ditolak: Role tidak teridentifikasi", nil)
 			c.Abort()
