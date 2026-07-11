@@ -9,6 +9,7 @@ import (
 	"backend-lingualoop/internal/modules/academic_year"
 	"backend-lingualoop/internal/modules/auth"
 	"backend-lingualoop/internal/modules/class"
+	"backend-lingualoop/internal/modules/dashboard"
 	"backend-lingualoop/internal/modules/major"
 	"backend-lingualoop/internal/modules/student"
 	"backend-lingualoop/internal/modules/subject"
@@ -54,6 +55,7 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		class.RegisterRoute(adminProtected, db)
 		subject.RegisterRoute(adminProtected, db)
 		academic_year.RegisterRoute(adminProtected, db)
+		dashboard.RegisterRoute(adminProtected, db)
 
 	}
 

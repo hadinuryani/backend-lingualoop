@@ -987,6 +987,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/dashboard/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get aggregated statistics for admin dashboard including demograhics and recent activities.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Admin Dashboard Stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dashboard.DashboardResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/majors": {
             "get": {
                 "security": [
@@ -2584,6 +2627,145 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "homeroom_teacher_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.Activity": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "colorClass": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "iconName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.ChartData": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "series": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.ChartSeries"
+                    }
+                }
+            }
+        },
+        "dashboard.ChartSeries": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.DashboardResponse": {
+            "type": "object",
+            "properties": {
+                "loginStatistics": {
+                    "description": "Akan dipakai untuk Demografi Gender",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dashboard.ChartData"
+                        }
+                    ]
+                },
+                "recentActivities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.Activity"
+                    }
+                },
+                "shortcuts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.Shortcut"
+                    }
+                },
+                "stats": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dashboard.StatCard"
+                    }
+                },
+                "taskStatistics": {
+                    "description": "Akan dipakai untuk Distribusi Kelas",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dashboard.ChartData"
+                        }
+                    ]
+                }
+            }
+        },
+        "dashboard.Shortcut": {
+            "type": "object",
+            "properties": {
+                "colorClass": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "iconName": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dashboard.StatCard": {
+            "type": "object",
+            "properties": {
+                "colorClass": {
+                    "type": "string"
+                },
+                "growth": {
+                    "type": "string"
+                },
+                "iconName": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }

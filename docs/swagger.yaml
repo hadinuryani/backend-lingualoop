@@ -201,6 +201,94 @@ definitions:
       homeroom_teacher_id:
         type: string
     type: object
+  dashboard.Activity:
+    properties:
+      action:
+        type: string
+      colorClass:
+        type: string
+      details:
+        type: string
+      iconName:
+        type: string
+      id:
+        type: integer
+      target:
+        type: string
+      time:
+        type: string
+      user:
+        type: string
+    type: object
+  dashboard.ChartData:
+    properties:
+      categories:
+        items:
+          type: string
+        type: array
+      series:
+        items:
+          $ref: '#/definitions/dashboard.ChartSeries'
+        type: array
+    type: object
+  dashboard.ChartSeries:
+    properties:
+      data:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+    type: object
+  dashboard.DashboardResponse:
+    properties:
+      loginStatistics:
+        allOf:
+        - $ref: '#/definitions/dashboard.ChartData'
+        description: Akan dipakai untuk Demografi Gender
+      recentActivities:
+        items:
+          $ref: '#/definitions/dashboard.Activity'
+        type: array
+      shortcuts:
+        items:
+          $ref: '#/definitions/dashboard.Shortcut'
+        type: array
+      stats:
+        items:
+          $ref: '#/definitions/dashboard.StatCard'
+        type: array
+      taskStatistics:
+        allOf:
+        - $ref: '#/definitions/dashboard.ChartData'
+        description: Akan dipakai untuk Distribusi Kelas
+    type: object
+  dashboard.Shortcut:
+    properties:
+      colorClass:
+        type: string
+      description:
+        type: string
+      iconName:
+        type: string
+      path:
+        type: string
+      title:
+        type: string
+    type: object
+  dashboard.StatCard:
+    properties:
+      colorClass:
+        type: string
+      growth:
+        type: string
+      iconName:
+        type: string
+      title:
+        type: string
+      value:
+        type: string
+    type: object
   major.MajorRequest:
     properties:
       code:
@@ -1005,6 +1093,31 @@ paths:
       summary: Create classes in batch
       tags:
       - Classes
+  /dashboard/stats:
+    get:
+      description: Get aggregated statistics for admin dashboard including demograhics
+        and recent activities.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dashboard.DashboardResponse'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Admin Dashboard Stats
+      tags:
+      - Dashboard
   /majors:
     get:
       description: Retrieve a list of all majors
