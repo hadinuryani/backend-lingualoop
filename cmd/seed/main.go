@@ -15,16 +15,12 @@ func main() {
 	db := database.ConnectDB()
 	defer db.Close()
 
-	log.Println("================================================")
 	log.Println("   LinguaLoop - Database Seeder")
-	log.Println("================================================")
 
 	// Jalankan seeder admin
-	if err := database.SeedAdmin(db); err != nil {
-		log.Fatalf("❌ Seeder gagal: %v\n", err)
+	if err := database.SeedUsers(db); err != nil {
+		log.Fatalf(" Gagal seeding user accounts: %v", err)
 	}
 
-	log.Println("================================================")
 	log.Println("   Proses seeding selesai!")
-	log.Println("================================================")
 }
