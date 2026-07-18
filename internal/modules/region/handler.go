@@ -84,15 +84,15 @@ func (h *Handler) GetProvinceByID(c *gin.Context) {
 // @Description  Retrieve all cities/regencies within a province. Supports optional search by name.
 // @Tags         Region
 // @Produce      json
-// @Param        provinceId path int true "Province ID"
+// @Param        id path int true "Province ID"
 // @Param        search query string false "Search city by name"
 // @Success      200 {object} response.DefaultResponse{data=[]CityResponse}
 // @Failure      400 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
-// @Router       /region/provinces/{provinceId}/cities [get]
+// @Router       /region/provinces/{id}/cities [get]
 // @Security      BearerAuth
 func (h *Handler) GetCitiesByProvinceID(c *gin.Context) {
-	provinceID, err := strconv.Atoi(c.Param("provinceId"))
+	provinceID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "ID provinsi tidak valid", nil)
 		return
@@ -152,15 +152,15 @@ func (h *Handler) GetCityByID(c *gin.Context) {
 // @Description  Retrieve all districts within a city. Supports optional search by name.
 // @Tags         Region
 // @Produce      json
-// @Param        cityId path int true "City ID"
+// @Param        id path int true "City ID"
 // @Param        search query string false "Search district by name"
 // @Success      200 {object} response.DefaultResponse{data=[]DistrictResponse}
 // @Failure      400 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
-// @Router       /region/cities/{cityId}/districts [get]
+// @Router       /region/cities/{id}/districts [get]
 // @Security      BearerAuth
 func (h *Handler) GetDistrictsByCityID(c *gin.Context) {
-	cityID, err := strconv.Atoi(c.Param("cityId"))
+	cityID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "ID kota tidak valid", nil)
 		return
@@ -220,15 +220,15 @@ func (h *Handler) GetDistrictByID(c *gin.Context) {
 // @Description  Retrieve all subdistricts/villages within a district. Supports optional search by name.
 // @Tags         Region
 // @Produce      json
-// @Param        districtId path int true "District ID"
+// @Param        id path int true "District ID"
 // @Param        search query string false "Search subdistrict by name"
 // @Success      200 {object} response.DefaultResponse{data=[]SubdistrictResponse}
 // @Failure      400 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
-// @Router       /region/districts/{districtId}/subdistricts [get]
+// @Router       /region/districts/{id}/subdistricts [get]
 // @Security      BearerAuth
 func (h *Handler) GetSubdistrictsByDistrictID(c *gin.Context) {
-	districtID, err := strconv.Atoi(c.Param("districtId"))
+	districtID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "ID kecamatan tidak valid", nil)
 		return
@@ -288,14 +288,14 @@ func (h *Handler) GetSubdistrictByID(c *gin.Context) {
 // @Description  Retrieve postal codes for a subdistrict
 // @Tags         Region
 // @Produce      json
-// @Param        subdistrictId path int true "Subdistrict ID"
+// @Param        id path int true "Subdistrict ID"
 // @Success      200 {object} response.DefaultResponse{data=[]PostalCodeResponse}
 // @Failure      400 {object} response.DefaultResponse
 // @Failure      500 {object} response.DefaultResponse
-// @Router       /region/subdistricts/{subdistrictId}/postal-codes [get]
+// @Router       /region/subdistricts/{id}/postal-codes [get]
 // @Security      BearerAuth
 func (h *Handler) GetPostalCodesBySubdistrictID(c *gin.Context) {
-	subdistrictID, err := strconv.Atoi(c.Param("subdistrictId"))
+	subdistrictID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "ID kelurahan tidak valid", nil)
 		return
