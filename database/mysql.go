@@ -1,9 +1,11 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"sync"
 	"time"
 
 	"backend-lingualoop/config"
@@ -12,12 +14,17 @@ import (
 )
 
 // DB adalah instance koneksi database global
-var DB *sql.DB
+var (
+	DB   *sql.DB
+	once sync.Once
+)
 
-func ConnectDB() *sql.DB {
+// ConnectDB membuka koneksi ke database dan mengembalikan db instance atau error
+func ConnectDB() (*sql.DB, error) {
 	cfg := config.GetConfig()
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local",
+	// DSN eksplisit dengan konfigurasi lengkap (sebagaimana best-practice)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=true&loc=Local&multiStatements=true&timeout=5s&readTimeout=30s&writeTimeout=30s",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,
@@ -25,31 +32,40 @@ func ConnectDB() *sql.DB {
 		cfg.Database.Name,
 	)
 
-	var err error
-	DB, err = sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalf("Gagal membuka koneksi database: %v", err)
+		return nil, fmt.Errorf("gagal membuka koneksi sql: %w", err)
 	}
 
 	// Konfigurasi Connection Pool
-	DB.SetMaxOpenConns(cfg.Database.MaxConnections)
-	DB.SetMaxIdleConns(cfg.Database.MaxIdleConnections)
-	DB.SetConnMaxLifetime(time.Hour)
-	DB.SetConnMaxIdleTime(15 * time.Minute)
+	db.SetMaxOpenConns(cfg.Database.MaxConnections)
+	db.SetMaxIdleConns(cfg.Database.MaxIdleConnections)
+	db.SetConnMaxLifetime(time.Hour)
+	db.SetConnMaxIdleTime(15 * time.Minute)
 
-	// Ping ke database untuk memastikan koneksi berhasil
-	if err := DB.Ping(); err != nil {
-		log.Fatalf("Gagal terhubung ke database (Ping): %v", err)
+	// Menggunakan PingContext dengan timeout agar aplikasi tidak hang jika DB mati
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("gagal terhubung ke database (Ping timeout): %w", err)
 	}
 
-	log.Println("Koneksi ke database MySQL berhasil dibentuk")
-	return DB
+	slog.Info("Koneksi ke database MySQL berhasil dibentuk")
+	return db, nil
 }
 
-// GetDB mengembalikan instance koneksi database global
+// GetDB mengembalikan instance koneksi database global menggunakan Singleton pattern
 func GetDB() *sql.DB {
-	if DB == nil {
-		return ConnectDB()
-	}
+	once.Do(func() {
+		if DB != nil {
+			return
+		}
+		var err error
+		DB, err = ConnectDB()
+		if err != nil {
+			slog.Error("Failed to automatically connect to database in GetDB", "error", err)
+		}
+	})
 	return DB
 }

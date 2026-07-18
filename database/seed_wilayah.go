@@ -1,11 +1,12 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,373 +15,232 @@ import (
 
 const batchSize = 500
 
-// SeedWilayah membaca file CSV wilayah Indonesia dan memasukkan data ke database.
-// csvBaseDir adalah path ke folder CSV (contoh: "../Wilayah-Indonesia-Beserta-Kode-Pos/CSV")
-func SeedWilayah(db *sql.DB, csvBaseDir string) error {
-	log.Println("Memulai seeding data Wilayah Indonesia...")
+// SeedWilayah membaca file CSV wilayah Indonesia dan memasukkan data ke database secara streaming dan transaksional.
+func SeedWilayah(ctx context.Context, db *sql.DB, csvBaseDir string) error {
+	slog.Info("Memulai seeding data Wilayah Indonesia...")
 
-	// Urutan seeding penting karena ada foreign key constraint
 	steps := []struct {
-		name    string
-		csvFile string
-		seedFn  func(*sql.DB, string) (int, error)
+		name      string
+		tableName string
+		columns   string
+		csvFile   string
+		mapper    func([]string) ([]any, error)
 	}{
-		{"Provinsi", "province.csv", seedProvinces},
-		{"Kota/Kabupaten", "city.csv", seedCities},
-		{"Kecamatan", "district.csv", seedDistricts},
-		{"Kelurahan/Desa", "subdistrict.csv", seedSubdistricts},
-		{"Kode Pos", "postal_code.csv", seedPostalCodes},
+		{
+			name:      "Provinsi",
+			tableName: "provinces",
+			columns:   "(id, name)",
+			csvFile:   "province.csv",
+			mapper: func(record []string) ([]any, error) {
+				if len(record) < 2 {
+					return nil, fmt.Errorf("kolom kurang dari 2")
+				}
+				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
+				if err != nil {
+					return nil, err
+				}
+				name := strings.TrimSpace(record[1])
+				return []any{id, name}, nil
+			},
+		},
+		{
+			name:      "Kota/Kabupaten",
+			tableName: "cities",
+			columns:   "(id, name, province_id)",
+			csvFile:   "city.csv",
+			mapper: func(record []string) ([]any, error) {
+				if len(record) < 3 {
+					return nil, fmt.Errorf("kolom kurang dari 3")
+				}
+				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
+				if err != nil {
+					return nil, err
+				}
+				name := strings.TrimSpace(record[1])
+				provID, err := strconv.Atoi(strings.TrimSpace(record[2]))
+				if err != nil {
+					return nil, err
+				}
+				return []any{id, name, provID}, nil
+			},
+		},
+		{
+			name:      "Kecamatan",
+			tableName: "districts",
+			columns:   "(id, name, city_id)",
+			csvFile:   "district.csv",
+			mapper: func(record []string) ([]any, error) {
+				if len(record) < 3 {
+					return nil, fmt.Errorf("kolom kurang dari 3")
+				}
+				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
+				if err != nil {
+					return nil, err
+				}
+				name := strings.TrimSpace(record[1])
+				cityID, err := strconv.Atoi(strings.TrimSpace(record[2]))
+				if err != nil {
+					return nil, err
+				}
+				return []any{id, name, cityID}, nil
+			},
+		},
+		{
+			name:      "Kelurahan/Desa",
+			tableName: "subdistricts",
+			columns:   "(id, name, district_id)",
+			csvFile:   "subdistrict.csv",
+			mapper: func(record []string) ([]any, error) {
+				if len(record) < 3 {
+					return nil, fmt.Errorf("kolom kurang dari 3")
+				}
+				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
+				if err != nil {
+					return nil, err
+				}
+				name := strings.TrimSpace(record[1])
+				distID, err := strconv.Atoi(strings.TrimSpace(record[2]))
+				if err != nil {
+					return nil, err
+				}
+				return []any{id, name, distID}, nil
+			},
+		},
+		{
+			name:      "Kode Pos",
+			tableName: "postal_codes",
+			columns:   "(id, subdistrict_id, postal_code)",
+			csvFile:   "postal_code.csv",
+			mapper: func(record []string) ([]any, error) {
+				if len(record) < 3 {
+					return nil, fmt.Errorf("kolom kurang dari 3")
+				}
+				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
+				if err != nil {
+					return nil, err
+				}
+				subdistID, err := strconv.Atoi(strings.TrimSpace(record[1]))
+				if err != nil {
+					return nil, err
+				}
+				postalCode, err := strconv.Atoi(strings.TrimSpace(record[2]))
+				if err != nil {
+					return nil, err
+				}
+				return []any{id, subdistID, postalCode}, nil
+			},
+		},
 	}
 
 	for _, step := range steps {
 		csvPath := filepath.Join(csvBaseDir, step.csvFile)
 
 		// Cek apakah sudah ada data di tabel
-		var count int
-		tableName := tableNameFromCSV(step.csvFile)
-		err := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)).Scan(&count)
+		var exists bool
+		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s LIMIT 1)", step.tableName)
+		err := db.QueryRowContext(ctx, query).Scan(&exists)
 		if err != nil {
-			return fmt.Errorf("gagal cek tabel %s: %w", tableName, err)
+			return fmt.Errorf("gagal cek tabel %s: %w", step.tableName, err)
 		}
 
-		if count > 0 {
-			log.Printf("  ✓ %s: sudah ada %d data, dilewati.", step.name, count)
+		if exists {
+			slog.Info(fmt.Sprintf("✓ %s: sudah ada data, dilewati.", step.name))
 			continue
 		}
 
-		inserted, err := step.seedFn(db, csvPath)
+		inserted, err := genericSeed(ctx, db, step.tableName, step.columns, csvPath, step.mapper)
 		if err != nil {
 			return fmt.Errorf("gagal seed %s: %w", step.name, err)
 		}
-		log.Printf("  ✓ %s: %d data berhasil dimasukkan.", step.name, inserted)
+		slog.Info(fmt.Sprintf("✓ %s: %d data berhasil dimasukkan.", step.name, inserted))
 	}
 
-	log.Println("Seeding data Wilayah Indonesia selesai!")
+	slog.Info("Seeding data Wilayah Indonesia selesai!")
 	return nil
 }
 
-// tableNameFromCSV mengembalikan nama tabel berdasarkan nama file CSV
-func tableNameFromCSV(csvFile string) string {
-	switch csvFile {
-	case "province.csv":
-		return "provinces"
-	case "city.csv":
-		return "cities"
-	case "district.csv":
-		return "districts"
-	case "subdistrict.csv":
-		return "subdistricts"
-	case "postal_code.csv":
-		return "postal_codes"
-	default:
-		return ""
-	}
-}
-
-// seedProvinces memasukkan data provinsi dari CSV
-func seedProvinces(db *sql.DB, csvPath string) (int, error) {
-	records, err := readCSV(csvPath)
+func genericSeed(
+	ctx context.Context,
+	db *sql.DB,
+	tableName string,
+	columns string,
+	csvPath string,
+	mapper func([]string) ([]any, error),
+) (int, error) {
+	file, err := os.Open(csvPath)
 	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		valueStrings := make([]string, 0, len(batch))
-		valueArgs := make([]interface{}, 0, len(batch)*2)
-
-		for _, record := range batch {
-			if len(record) < 2 {
-				continue
-			}
-			id, err := strconv.Atoi(strings.TrimSpace(record[0]))
-			if err != nil {
-				continue
-			}
-			name := strings.TrimSpace(record[1])
-
-			valueStrings = append(valueStrings, "(?, ?)")
-			valueArgs = append(valueArgs, id, name)
-		}
-
-		if len(valueStrings) == 0 {
-			continue
-		}
-
-		query := fmt.Sprintf("INSERT IGNORE INTO provinces (id, name) VALUES %s",
-			strings.Join(valueStrings, ", "))
-
-		_, err := db.Exec(query, valueArgs...)
-		if err != nil {
-			return total, fmt.Errorf("batch insert provinces gagal: %w", err)
-		}
-		total += len(valueStrings)
-	}
-
-	return total, nil
-}
-
-// seedCities memasukkan data kota/kabupaten dari CSV
-func seedCities(db *sql.DB, csvPath string) (int, error) {
-	records, err := readCSV(csvPath)
-	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		valueStrings := make([]string, 0, len(batch))
-		valueArgs := make([]interface{}, 0, len(batch)*3)
-
-		for _, record := range batch {
-			if len(record) < 3 {
-				continue
-			}
-			id, err := strconv.Atoi(strings.TrimSpace(record[0]))
-			if err != nil {
-				continue
-			}
-			name := strings.TrimSpace(record[1])
-			provID, err := strconv.Atoi(strings.TrimSpace(record[2]))
-			if err != nil {
-				continue
-			}
-
-			valueStrings = append(valueStrings, "(?, ?, ?)")
-			valueArgs = append(valueArgs, id, name, provID)
-		}
-
-		if len(valueStrings) == 0 {
-			continue
-		}
-
-		query := fmt.Sprintf("INSERT IGNORE INTO cities (id, name, province_id) VALUES %s",
-			strings.Join(valueStrings, ", "))
-
-		_, err := db.Exec(query, valueArgs...)
-		if err != nil {
-			return total, fmt.Errorf("batch insert cities gagal: %w", err)
-		}
-		total += len(valueStrings)
-	}
-
-	return total, nil
-}
-
-// seedDistricts memasukkan data kecamatan dari CSV
-func seedDistricts(db *sql.DB, csvPath string) (int, error) {
-	records, err := readCSV(csvPath)
-	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		valueStrings := make([]string, 0, len(batch))
-		valueArgs := make([]interface{}, 0, len(batch)*3)
-
-		for _, record := range batch {
-			if len(record) < 3 {
-				continue
-			}
-			id, err := strconv.Atoi(strings.TrimSpace(record[0]))
-			if err != nil {
-				continue
-			}
-			name := strings.TrimSpace(record[1])
-			cityID, err := strconv.Atoi(strings.TrimSpace(record[2]))
-			if err != nil {
-				continue
-			}
-
-			valueStrings = append(valueStrings, "(?, ?, ?)")
-			valueArgs = append(valueArgs, id, name, cityID)
-		}
-
-		if len(valueStrings) == 0 {
-			continue
-		}
-
-		query := fmt.Sprintf("INSERT IGNORE INTO districts (id, name, city_id) VALUES %s",
-			strings.Join(valueStrings, ", "))
-
-		_, err := db.Exec(query, valueArgs...)
-		if err != nil {
-			return total, fmt.Errorf("batch insert districts gagal: %w", err)
-		}
-		total += len(valueStrings)
-	}
-
-	return total, nil
-}
-
-// seedSubdistricts memasukkan data kelurahan/desa dari CSV
-func seedSubdistricts(db *sql.DB, csvPath string) (int, error) {
-	records, err := readCSV(csvPath)
-	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		valueStrings := make([]string, 0, len(batch))
-		valueArgs := make([]interface{}, 0, len(batch)*3)
-
-		for _, record := range batch {
-			if len(record) < 3 {
-				continue
-			}
-			id, err := strconv.Atoi(strings.TrimSpace(record[0]))
-			if err != nil {
-				continue
-			}
-			name := strings.TrimSpace(record[1])
-			districtID, err := strconv.Atoi(strings.TrimSpace(record[2]))
-			if err != nil {
-				continue
-			}
-
-			valueStrings = append(valueStrings, "(?, ?, ?)")
-			valueArgs = append(valueArgs, id, name, districtID)
-		}
-
-		if len(valueStrings) == 0 {
-			continue
-		}
-
-		query := fmt.Sprintf("INSERT IGNORE INTO subdistricts (id, name, district_id) VALUES %s",
-			strings.Join(valueStrings, ", "))
-
-		_, err := db.Exec(query, valueArgs...)
-		if err != nil {
-			return total, fmt.Errorf("batch insert subdistricts gagal: %w", err)
-		}
-		total += len(valueStrings)
-	}
-
-	return total, nil
-}
-
-// seedPostalCodes memasukkan data kode pos dari CSV
-func seedPostalCodes(db *sql.DB, csvPath string) (int, error) {
-	records, err := readCSV(csvPath)
-	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
-		batch := records[i:end]
-
-		valueStrings := make([]string, 0, len(batch))
-		valueArgs := make([]interface{}, 0, len(batch)*6)
-
-		for _, record := range batch {
-			if len(record) < 6 {
-				continue
-			}
-			id, err := strconv.Atoi(strings.TrimSpace(record[0]))
-			if err != nil {
-				continue
-			}
-			subdisID, err := strconv.Atoi(strings.TrimSpace(record[1]))
-			if err != nil {
-				continue
-			}
-			disID, err := strconv.Atoi(strings.TrimSpace(record[2]))
-			if err != nil {
-				continue
-			}
-			cityID, err := strconv.Atoi(strings.TrimSpace(record[3]))
-			if err != nil {
-				continue
-			}
-			provID, err := strconv.Atoi(strings.TrimSpace(record[4]))
-			if err != nil {
-				continue
-			}
-			postalCode := strings.TrimSpace(record[5])
-
-			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?)")
-			valueArgs = append(valueArgs, id, subdisID, disID, cityID, provID, postalCode)
-		}
-
-		if len(valueStrings) == 0 {
-			continue
-		}
-
-		query := fmt.Sprintf(
-			"INSERT IGNORE INTO postal_codes (id, subdistrict_id, district_id, city_id, province_id, postal_code) VALUES %s",
-			strings.Join(valueStrings, ", "))
-
-		_, err := db.Exec(query, valueArgs...)
-		if err != nil {
-			return total, fmt.Errorf("batch insert postal_codes gagal: %w", err)
-		}
-		total += len(valueStrings)
-	}
-
-	return total, nil
-}
-
-// readCSV membaca file CSV dan mengembalikan semua record (tanpa header)
-func readCSV(filePath string) ([][]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuka file %s: %w", filePath, err)
+		return 0, fmt.Errorf("gagal membuka file %s: %w", csvPath, err)
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
-	reader.LazyQuotes = true
-	reader.TrimLeadingSpace = true
 
-	// Skip header
-	_, err = reader.Read()
+	// Mulai Transaksi
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("gagal membaca header %s: %w", filePath, err)
+		return 0, fmt.Errorf("gagal memulai transaksi untuk %s: %w", tableName, err)
 	}
+	defer tx.Rollback()
 
-	var records [][]string
+	total := 0
+	var batchArgs []any
+	var placeholders []string
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			// Skip baris yang bermasalah, lanjutkan
+			slog.Warn("Gagal membaca baris CSV, baris dilewati", "file", filepath.Base(csvPath), "error", err)
 			continue
 		}
-		records = append(records, record)
+
+		args, err := mapper(record)
+		if err != nil {
+			// Skip quietly if it's the header row. But for visibility, we log warning.
+			slog.Warn("Gagal parsing baris CSV, baris dilewati", "file", filepath.Base(csvPath), "record", record, "error", err)
+			continue
+		}
+
+		qs := make([]string, len(args))
+		for j := range qs {
+			qs[j] = "?"
+		}
+		placeholders = append(placeholders, "("+strings.Join(qs, ", ")+")")
+		batchArgs = append(batchArgs, args...)
+
+		if len(placeholders) >= batchSize {
+			if err := insertBatch(ctx, tx, tableName, columns, placeholders, batchArgs); err != nil {
+				return total, err
+			}
+			total += len(placeholders)
+			placeholders = nil
+			batchArgs = nil
+		}
 	}
 
-	return records, nil
+	// Insert sisa batch
+	if len(placeholders) > 0 {
+		if err := insertBatch(ctx, tx, tableName, columns, placeholders, batchArgs); err != nil {
+			return total, err
+		}
+		total += len(placeholders)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return total, fmt.Errorf("gagal commit transaksi %s: %w", tableName, err)
+	}
+
+	return total, nil
+}
+
+func insertBatch(ctx context.Context, tx *sql.Tx, tableName string, columns string, placeholders []string, args []any) error {
+	query := fmt.Sprintf("INSERT IGNORE INTO %s %s VALUES %s", tableName, columns, strings.Join(placeholders, ", "))
+	
+	_, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("batch insert ke %s gagal: %w", tableName, err)
+	}
+	return nil
 }

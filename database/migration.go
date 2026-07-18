@@ -1,107 +1,163 @@
 package database
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
+	"strconv"
 )
 
-// Migration merepresentasikan satu file migrasi database
 type Migration struct {
-	Version  string
+	Version  int
 	Name     string
+	Checksum string
 	FilePath string
 }
 
-// RunMigrations menjalankan semua file migrasi .sql yang belum dieksekusi
-func RunMigrations(db *sql.DB, migrationsDir string) error {
-	// 1. Buat tabel schema_migrations jika belum ada
-	if err := createMigrationsTable(db); err != nil {
+var migrationFileRegex = regexp.MustCompile(`^([0-9]{3})_(.+)\.sql$`)
+
+func RunMigrations(ctx context.Context, db *sql.DB, migrationsDir string) error {
+	// 1. Ambil koneksi khusus untuk mengunci (GET_LOCK)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("gagal mendapatkan koneksi db: %w", err)
+	}
+	defer conn.Close()
+
+	// Ambil lock
+	var lockAcquired int
+	err = conn.QueryRowContext(ctx, "SELECT GET_LOCK(CONCAT('lingualoop_migration_', DATABASE()), 10)").Scan(&lockAcquired)
+	if err != nil {
+		return fmt.Errorf("gagal mencoba acquire lock: %w", err)
+	}
+	if lockAcquired != 1 {
+		return fmt.Errorf("migration lock sedang digunakan oleh proses lain, harap tunggu")
+	}
+	// Pastikan lock dilepas saat fungsi selesai
+	defer func() {
+		_, _ = conn.ExecContext(ctx, "SELECT RELEASE_LOCK(CONCAT('lingualoop_migration_', DATABASE()))")
+	}()
+
+	slog.Info("Migration lock acquired")
+
+	// 2. Buat/Update tabel schema_migrations
+	if err := createMigrationsTable(conn, ctx); err != nil {
 		return fmt.Errorf("gagal membuat tabel schema_migrations: %w", err)
 	}
 
-	// 2. Ambil daftar migrasi yang sudah dijalankan
-	applied, err := getAppliedMigrations(db)
+	// 3. Ambil daftar migrasi yang sudah dijalankan
+	applied, err := getAppliedMigrations(conn, ctx)
 	if err != nil {
 		return fmt.Errorf("gagal mengambil daftar migrasi: %w", err)
 	}
 
-	// 3. Scan folder migrations/ untuk file .sql
+	// 4. Scan folder migrations/
 	migrations, err := scanMigrationFiles(migrationsDir)
 	if err != nil {
 		return fmt.Errorf("gagal scan file migrasi: %w", err)
 	}
 
 	if len(migrations) == 0 {
-		log.Println("Tidak ada file migrasi ditemukan di:", migrationsDir)
+		slog.Info("Tidak ada file migrasi ditemukan di: " + migrationsDir)
 		return nil
 	}
 
-	// 4. Filter hanya yang belum dijalankan
+	// 5. Verifikasi Integritas (Duplicate, Checksum, Missing)
+	if err := verifyMigrations(migrations, applied); err != nil {
+		return fmt.Errorf("verifikasi migrasi gagal: %w", err)
+	}
+
+	// 6. Filter hanya yang belum dijalankan
 	pending := filterPending(migrations, applied)
 
 	if len(pending) == 0 {
-		log.Println("Database sudah up-to-date. Tidak ada migrasi baru.")
+		slog.Info("Database sudah up-to-date. Tidak ada migrasi baru.")
 		return nil
 	}
 
-	// 5. Eksekusi migrasi yang pending secara berurutan
-	log.Printf("Ditemukan %d migrasi yang perlu dijalankan...\n", len(pending))
+	// 7. Eksekusi migrasi yang pending secara berurutan
+	slog.Info(fmt.Sprintf("Ditemukan %d migrasi yang perlu dijalankan...", len(pending)))
 
 	for _, m := range pending {
-		log.Printf("▶ Menjalankan migrasi: %s (%s)\n", m.Version, m.Name)
+		slog.Info(fmt.Sprintf("Menjalankan migrasi: %03d (%s)", m.Version, m.Name))
 
-		if err := executeMigration(db, m); err != nil {
-			return fmt.Errorf("gagal menjalankan migrasi %s: %w", m.Version, err)
+		if err := executeMigration(conn, ctx, m); err != nil {
+			return fmt.Errorf("gagal menjalankan migrasi %03d: %w", m.Version, err)
 		}
 
-		log.Printf(" Berhasil: %s\n", m.Version)
+		slog.Info(fmt.Sprintf("Berhasil: %03d", m.Version))
 	}
 
-	log.Printf("Semua %d migrasi berhasil dijalankan!\n", len(pending))
+	slog.Info(fmt.Sprintf("Semua %d migrasi berhasil dijalankan!", len(pending)))
 	return nil
 }
 
-// createMigrationsTable membuat tabel tracking migrasi jika belum ada
-func createMigrationsTable(db *sql.DB) error {
+func createMigrationsTable(conn *sql.Conn, ctx context.Context) error {
+	// Pengecekan tipe data kolom version untuk memutuskan perlunya Drop
+	var columnType string
+	err := conn.QueryRowContext(ctx, "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'schema_migrations' AND COLUMN_NAME = 'version' AND TABLE_SCHEMA = DATABASE()").Scan(&columnType)
+	
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	
+	// Jika tabel sudah ada dan kolom version bukan int (yaitu varchar peninggalan lama), lakukan ALTER TABLE
+	if err == nil && !strings.Contains(strings.ToLower(columnType), "int") {
+		slog.Warn("Tabel schema_migrations lama terdeteksi (tipe varchar). Akan dilakukan ALTER TABLE untuk mengupgrade skema migration runner.")
+		
+		alterQuery := `
+			ALTER TABLE schema_migrations 
+			DROP PRIMARY KEY,
+			MODIFY COLUMN version INT,
+			ADD PRIMARY KEY (version),
+			ADD COLUMN checksum CHAR(64) NOT NULL DEFAULT '' AFTER name;
+		`
+		if _, err := conn.ExecContext(ctx, alterQuery); err != nil {
+			return fmt.Errorf("gagal melakukan ALTER TABLE pada schema_migrations: %w", err)
+		}
+	}
+
 	query := `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
-			version    VARCHAR(50) PRIMARY KEY,
+			version    INT PRIMARY KEY,
 			name       VARCHAR(255) NOT NULL,
+			checksum   CHAR(64) NOT NULL,
 			applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`
-	_, err := db.Exec(query)
+	_, err = conn.ExecContext(ctx, query)
 	return err
 }
 
-// getAppliedMigrations mengambil semua versi migrasi yang sudah dijalankan
-func getAppliedMigrations(db *sql.DB) (map[string]bool, error) {
-	applied := make(map[string]bool)
+func getAppliedMigrations(conn *sql.Conn, ctx context.Context) (map[int]Migration, error) {
+	applied := make(map[int]Migration)
 
-	rows, err := db.Query("SELECT version FROM schema_migrations ORDER BY version")
+	rows, err := conn.QueryContext(ctx, "SELECT version, name, checksum FROM schema_migrations ORDER BY version")
 	if err != nil {
 		return applied, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var version string
-		if err := rows.Scan(&version); err != nil {
+		var m Migration
+		if err := rows.Scan(&m.Version, &m.Name, &m.Checksum); err != nil {
 			return applied, err
 		}
-		applied[version] = true
+		applied[m.Version] = m
 	}
 
 	return applied, rows.Err()
 }
 
-// scanMigrationFiles membaca semua file .sql dari folder migrasi
 func scanMigrationFiles(dir string) ([]Migration, error) {
 	var migrations []Migration
 
@@ -110,29 +166,47 @@ func scanMigrationFiles(dir string) ([]Migration, error) {
 		return nil, fmt.Errorf("tidak dapat membaca folder %s: %w", dir, err)
 	}
 
+	seenVersions := make(map[int]string)
+
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
 
-		// Format nama file: 001_create_users_table.sql
 		filename := entry.Name()
-		parts := strings.SplitN(strings.TrimSuffix(filename, ".sql"), "_", 2)
+		matches := migrationFileRegex.FindStringSubmatch(filename)
+		if len(matches) != 3 {
+			return nil, fmt.Errorf("format nama file migrasi tidak valid: %s (Harus sesuai regex ^([0-9]{3})_(.+)\\.sql$)", filename)
+		}
 
-		version := parts[0]
-		name := filename
-		if len(parts) > 1 {
-			name = parts[1]
+		versionStr := matches[1]
+		name := matches[2]
+		
+		version, err := strconv.Atoi(versionStr)
+		if err != nil {
+			return nil, fmt.Errorf("gagal parsing versi migrasi dari file %s", filename)
+		}
+
+		if existingFile, exists := seenVersions[version]; exists {
+			return nil, fmt.Errorf("DUPLICATE MIGRATION VERSION TERDETEKSI: Versi %03d dipakai oleh '%s' dan '%s'", version, existingFile, filename)
+		}
+		seenVersions[version] = filename
+
+		filePath := filepath.Join(dir, filename)
+		checksum, err := calculateChecksum(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("gagal menghitung checksum file %s: %w", filename, err)
 		}
 
 		migrations = append(migrations, Migration{
 			Version:  version,
 			Name:     name,
-			FilePath: filepath.Join(dir, filename),
+			Checksum: checksum,
+			FilePath: filePath,
 		})
 	}
 
-	// Sort berdasarkan version (nama file)
+	// Sort berdasarkan integer version
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].Version < migrations[j].Version
 	})
@@ -140,20 +214,64 @@ func scanMigrationFiles(dir string) ([]Migration, error) {
 	return migrations, nil
 }
 
-// filterPending mengembalikan migrasi yang belum dijalankan
-func filterPending(all []Migration, applied map[string]bool) []Migration {
+func calculateChecksum(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(content)
+	return hex.EncodeToString(hash[:]), nil
+}
+
+func verifyMigrations(migrations []Migration, applied map[int]Migration) error {
+	var maxAppliedVersion int
+	for v := range applied {
+		if v > maxAppliedVersion {
+			maxAppliedVersion = v
+		}
+	}
+
+	// Cek out-of-order dari sisi file yang akan di-apply
+	for _, m := range migrations {
+		if appliedM, exists := applied[m.Version]; exists {
+			// Sudah di-apply, cek apakah file dimodifikasi
+			// Hanya bandingkan checksum jika appliedM.Checksum tidak kosong (bisa jadi kosong akibat dari ALTER TABLE versi lama)
+			if appliedM.Checksum != "" && appliedM.Checksum != m.Checksum {
+				return fmt.Errorf("MODIFIED MIGRATION TERDETEKSI: File '%s' (Versi %d) telah diubah setelah dijalankan. Checksum DB: %s, File: %s", m.FilePath, m.Version, appliedM.Checksum, m.Checksum)
+			}
+		} else {
+			// Belum di-apply, cek apakah ini out-of-order
+			if m.Version < maxAppliedVersion {
+				return fmt.Errorf("MISSING MIGRATION TERDETEKSI: Versi %d ('%s') terlewat dan ada versi lebih baru yang sudah berjalan di database", m.Version, m.FilePath)
+			}
+		}
+	}
+
+	// Cek missing file: ada di database tapi file fisiknya hilang
+	fileMap := make(map[int]Migration)
+	for _, m := range migrations {
+		fileMap[m.Version] = m
+	}
+	for v, appliedM := range applied {
+		if _, exists := fileMap[v]; !exists {
+			return fmt.Errorf("MISSING FILE TERDETEKSI: Migrasi versi %03d ('%s') tercatat di database tapi file fisiknya tidak ditemukan", v, appliedM.Name)
+		}
+	}
+
+	return nil
+}
+
+func filterPending(all []Migration, applied map[int]Migration) []Migration {
 	var pending []Migration
 	for _, m := range all {
-		if !applied[m.Version] {
+		if _, exists := applied[m.Version]; !exists {
 			pending = append(pending, m)
 		}
 	}
 	return pending
 }
 
-// executeMigration membaca file SQL dan menjalankannya dalam transaksi
-func executeMigration(db *sql.DB, m Migration) error {
-	// Baca isi file SQL
+func executeMigration(conn *sql.Conn, ctx context.Context, m Migration) error {
 	content, err := os.ReadFile(m.FilePath)
 	if err != nil {
 		return fmt.Errorf("gagal membaca file %s: %w", m.FilePath, err)
@@ -164,104 +282,28 @@ func executeMigration(db *sql.DB, m Migration) error {
 		return fmt.Errorf("file migrasi kosong: %s", m.FilePath)
 	}
 
-	// Pisahkan per statement (berdasarkan delimiter ;)
-	statements := splitStatements(sqlContent)
-
-	// Jalankan dalam transaksi
-	tx, err := db.Begin()
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("gagal memulai transaksi: %w", err)
+		return fmt.Errorf("gagal memulai transaksi migrasi: %w", err)
 	}
 
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" || strings.HasPrefix(stmt, "--") {
-			continue
-		}
-
-		if _, err := tx.Exec(stmt); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("gagal menjalankan statement: %w\nSQL: %s", err, truncate(stmt, 200))
-		}
+	// Eksekusi keseluruhan isi file
+	// MySQL Driver akan mengeksekusi multi-statement karena kita menambah multiStatements=true di DSN
+	_, err = tx.ExecContext(ctx, sqlContent)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("gagal menjalankan query migrasi: %w", err)
 	}
 
 	// Catat migrasi yang sudah dijalankan
-	_, err = tx.Exec(
-		"INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)",
-		m.Version, m.Name, time.Now(),
+	_, err = tx.ExecContext(ctx, 
+		"INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
+		m.Version, m.Name, m.Checksum, time.Now(),
 	)
 	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("gagal mencatat migrasi: %w", err)
+		return fmt.Errorf("gagal mencatat migrasi ke schema_migrations: %w", err)
 	}
 
 	return tx.Commit()
-}
-
-// splitStatements memecah string SQL menjadi statement-statement individual
-func splitStatements(sql string) []string {
-	var statements []string
-	var current strings.Builder
-	inString := false
-	stringChar := byte(0)
-
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-
-		// Handle string literals
-		if !inString && (ch == '\'' || ch == '"') {
-			inString = true
-			stringChar = ch
-			current.WriteByte(ch)
-			continue
-		}
-
-		if inString && ch == stringChar {
-			// Check for escaped quote
-			if i+1 < len(sql) && sql[i+1] == stringChar {
-				current.WriteByte(ch)
-				current.WriteByte(ch)
-				i++
-				continue
-			}
-			inString = false
-			current.WriteByte(ch)
-			continue
-		}
-
-		// Handle single-line comments
-		if !inString && ch == '-' && i+1 < len(sql) && sql[i+1] == '-' {
-			for i < len(sql) && sql[i] != '\n' {
-				i++
-			}
-			continue
-		}
-
-		// Handle statement delimiter
-		if !inString && ch == ';' {
-			stmt := strings.TrimSpace(current.String())
-			if stmt != "" {
-				statements = append(statements, stmt)
-			}
-			current.Reset()
-			continue
-		}
-
-		current.WriteByte(ch)
-	}
-
-	// Sisa terakhir (tanpa ;)
-	if stmt := strings.TrimSpace(current.String()); stmt != "" {
-		statements = append(statements, stmt)
-	}
-
-	return statements
-}
-
-// truncate memotong string untuk logging
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }

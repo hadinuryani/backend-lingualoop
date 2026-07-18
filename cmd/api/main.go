@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
+	"os"
 
 	"backend-lingualoop/config"
 	"backend-lingualoop/database"
@@ -18,13 +20,35 @@ import (
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+const banner = " ____             _                  _\n" +
+	"| __ )  __ _  ___| | _____ _ __   __| |\n" +
+	"|  _ \\ / _` |/ __| |/ / _ \\ '_ \\ / _` |\n" +
+	"| |_) | (_| | (__|   <  __/ | | | (_| |\n" +
+	"|____/ \\__,_|\\___|_|\\_\\___|_| |_|\\__,_|\n" +
+	"\n" +
+	" _     _                         _\n" +
+	"| |   (_)_ __   __ _ _   _  __ _| |    ___   ___  _ __\n" +
+	"| |   | | '_ \\ / _` | | | |/ _` | |   / _ \\ / _ \\| '_ \\\n" +
+	"| |___| | | | | (_| | |_| | (_| | |__| (_) | (_) | |_) |\n" +
+	"|_____|_|_| |_|\\__, |\\__,_|\\__,_|_____\\___/ \\___/| .__/\n" +
+	"                |___/                            |_|\n"
+
 func main() {
+	fmt.Println(banner)
+
 	// 1. Load Konfigurasi (.env)
 	cfg := config.LoadConfig()
 
 	// 2. Konek ke Database MySQL
-	db := database.ConnectDB()
+	db, err := database.ConnectDB()
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
+	}
 	defer db.Close()
+	
+	// Set instance global agar GetDB() dari package lain bisa mendapatkan instance yang sama
+	database.DB = db
 
 	// 3. Inisialisasi Aplikasi (Router & Semua Modul via Bootstrap)
 	isProduction := cfg.App.Env == "production"
@@ -39,11 +63,12 @@ func main() {
 	})
 
 	// 5. Jalankan Server
-	log.Printf("Starting %s on port %s\n", cfg.App.Name, cfg.App.Port)
-	log.Printf("Environment: %s\n", cfg.App.Env)
-	log.Printf("Database: %s@%s:%s\n", cfg.Database.User, cfg.Database.Host, cfg.Database.Port)
+	slog.Info(fmt.Sprintf("Starting %s on port %s", cfg.App.Name, cfg.App.Port))
+	slog.Info(fmt.Sprintf("Environment: %s", cfg.App.Env))
+	slog.Info(fmt.Sprintf("Database: %s@%s:%s", cfg.Database.User, cfg.Database.Host, cfg.Database.Port))
 
 	if err := app.Run(":" + cfg.App.Port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("Failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

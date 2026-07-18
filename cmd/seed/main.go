@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log"
+	"context"
+	"log/slog"
+	"os"
 	"path/filepath"
 
 	"backend-lingualoop/config"
@@ -13,21 +15,27 @@ func main() {
 	config.LoadConfig()
 
 	// Connect ke database
-	db := database.ConnectDB()
+	db, err := database.ConnectDB()
+	if err != nil {
+		slog.Error("Database connection failed", "error", err)
+		os.Exit(1)
+	}
 	defer db.Close()
 
-	log.Println("   LinguaLoop - Database Seeder")
+	slog.Info("LinguaLoop - Database Seeder")
 
 	// Jalankan seeder admin
-	if err := database.SeedUsers(db); err != nil {
-		log.Fatalf(" Gagal seeding user accounts: %v", err)
+	if err := database.SeedUsers(context.Background(), db); err != nil {
+		slog.Error("Gagal seeding user accounts", "error", err)
+		os.Exit(1)
 	}
 
 	// Jalankan seeder wilayah Indonesia
 	csvDir := filepath.Join("Wilayah-Indonesia-Beserta-Kode-Pos", "CSV")
-	if err := database.SeedWilayah(db, csvDir); err != nil {
-		log.Fatalf(" Gagal seeding wilayah Indonesia: %v", err)
+	if err := database.SeedWilayah(context.Background(), db, csvDir); err != nil {
+		slog.Error("Gagal seeding wilayah Indonesia", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("   Proses seeding selesai!")
+	slog.Info("Proses seeding selesai!")
 }

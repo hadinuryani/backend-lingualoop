@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log"
+	"context"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -12,7 +14,11 @@ import (
 func main() {
 	config.LoadConfig()
 
-	db := database.ConnectDB()
+	db, err := database.ConnectDB()
+	if err != nil {
+		slog.Error("Database connection failed", "error", err)
+		os.Exit(1)
+	}
 	defer db.Close()
 
 	// Tentukan path folder migrations
@@ -23,12 +29,13 @@ func main() {
 		migrationsDir = os.Args[1]
 	}
 
-	log.Println("   LinguaLoop - Database Migration Runner")
-	log.Printf(" Folder migrasi: %s\n", migrationsDir)
+	slog.Info("LinguaLoop - Database Migration Runner")
+	slog.Info(fmt.Sprintf("Folder migrasi: %s", migrationsDir))
 
 	// Jalankan semua migrasi yang pending
-	if err := database.RunMigrations(db, migrationsDir); err != nil {
-		log.Fatalf("Migration gagal: %v\n", err)
+	if err := database.RunMigrations(context.Background(), db, migrationsDir); err != nil {
+		slog.Error("Migration gagal", "error", err)
+		os.Exit(1)
 	}
-	log.Println("   Migration selesai!")
+	slog.Info("Migration selesai!")
 }
