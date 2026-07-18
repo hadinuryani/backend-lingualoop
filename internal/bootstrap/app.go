@@ -14,6 +14,7 @@ import (
 	"backend-lingualoop/internal/modules/student"
 	"backend-lingualoop/internal/modules/subject"
 	"backend-lingualoop/internal/modules/teacher"
+	"backend-lingualoop/internal/modules/region"
 	"backend-lingualoop/pkg/jwt"
 
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,7 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		subject.RegisterRoute(adminProtected, db)
 		academic_year.RegisterRoute(adminProtected, db)
 		dashboard.RegisterRoute(adminProtected, db)
+		region.RegisterRoute(adminProtected, db)
 
 	}
 
