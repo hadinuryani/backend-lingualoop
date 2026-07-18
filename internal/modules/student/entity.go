@@ -24,11 +24,12 @@ type Student struct {
 	AddressRegion *string
 	AddressDetail *string
 	Photo         *string
-	MajorID       *string // Dari fk majors
-	ClassLevel    *string // Dari fk levels
-	Status        string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	MajorID        *string // Dari fk majors
+	ClassLevel     *string // Dari fk levels
+	CurrentClassID *string // Ditambahkan dari JOIN student_classes
+	Status         string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // User struct hanya merepresentasikan model data pada users table saat Create.
@@ -43,4 +44,13 @@ type User struct {
 	IsActive     bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type StudentClass struct {
+	ID             string
+	StudentID      string
+	ClassID        string
+	AcademicYearID string
+	IsActive       bool
+	CreatedAt      time.Time
 }

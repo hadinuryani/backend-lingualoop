@@ -15,6 +15,9 @@ type Repository interface {
 	Update(ctx context.Context, student *Student, user *User) error
 	UpdateStatus(ctx context.Context, studentID string, userID string, status string) error
 	Delete(ctx context.Context, studentID string, userID string) error
+	FindAllByAcademicYear(ctx context.Context, academicYearID string) ([]*Student, error)
+	InsertStudentClassesBatchTx(ctx context.Context, tx *sql.Tx, studentClasses []*StudentClass) error
+	UpdateLevelAndStatusBatchTx(ctx context.Context, tx *sql.Tx, students []*Student) error
 }
 
 type repository struct {
@@ -315,4 +318,125 @@ func (r *repository) Delete(ctx context.Context, studentID string, userID string
 	}
 
 	return tx.Commit()
+}
+
+func (r *repository) FindAllByAcademicYear(ctx context.Context, academicYearID string) ([]*Student, error) {
+	query := `
+		SELECT 
+			s.id, 
+			s.user_id, 
+			u.username,
+			u.email,
+			s.nis, 
+			s.full_name, 
+			s.gender, 
+			s.birth_place, 
+			s.birth_date, 
+			s.phone, 
+			s.address_region, 
+			s.address_detail, 
+			s.photo, 
+			s.major_id,
+			s.class_level,
+			s.status, 
+			s.created_at, 
+			s.updated_at,
+			sc.class_id
+		FROM students s
+		JOIN users u ON s.user_id = u.id
+		JOIN student_classes sc ON s.id = sc.student_id
+		WHERE sc.academic_year_id = ? AND sc.is_active = TRUE AND s.deleted_at IS NULL
+	`
+	rows, err := r.db.QueryContext(ctx, query, academicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []*Student
+	for rows.Next() {
+		var s Student
+		var birthPlace, phone, addressRegion, addressDetail, photo, majorID, classLevel, currentClassID sql.NullString
+		var birthDate sql.NullTime
+
+		err := rows.Scan(
+			&s.ID, &s.UserID, &s.Username, &s.Email, &s.NIS, &s.FullName, &s.Gender,
+			&birthPlace, &birthDate, &phone, &addressRegion, &addressDetail, &photo,
+			&majorID, &classLevel, &s.Status, &s.CreatedAt, &s.UpdatedAt, &currentClassID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if birthPlace.Valid {
+			s.BirthPlace = &birthPlace.String
+		}
+		if birthDate.Valid {
+			s.BirthDate = &birthDate.Time
+		}
+		if phone.Valid {
+			s.Phone = &phone.String
+		}
+		if addressRegion.Valid {
+			s.AddressRegion = &addressRegion.String
+		}
+		if addressDetail.Valid {
+			s.AddressDetail = &addressDetail.String
+		}
+		if photo.Valid {
+			s.Photo = &photo.String
+		}
+		if majorID.Valid {
+			s.MajorID = &majorID.String
+		}
+		if classLevel.Valid {
+			s.ClassLevel = &classLevel.String
+		}
+		if currentClassID.Valid {
+			s.CurrentClassID = &currentClassID.String
+		}
+
+		students = append(students, &s)
+	}
+	return students, nil
+}
+
+func (r *repository) InsertStudentClassesBatchTx(ctx context.Context, tx *sql.Tx, studentClasses []*StudentClass) error {
+	if len(studentClasses) == 0 {
+		return nil
+	}
+	query := `INSERT INTO student_classes (id, student_id, class_id, academic_year_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, sc := range studentClasses {
+		_, err := stmt.ExecContext(ctx, sc.ID, sc.StudentID, sc.ClassID, sc.AcademicYearID, sc.IsActive, sc.CreatedAt)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) UpdateLevelAndStatusBatchTx(ctx context.Context, tx *sql.Tx, students []*Student) error {
+	if len(students) == 0 {
+		return nil
+	}
+	query := `UPDATE students SET class_level = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, s := range students {
+		_, err := stmt.ExecContext(ctx, s.ClassLevel, s.Status, s.ID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
