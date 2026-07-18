@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,48 +49,7 @@ func getLevelName(levelID string) string {
 	return levelID // Fallback
 }
 
-// Logic untuk mencari next letter
-func generateClassNames(existingNames []string, levelName, majorCode string, count int) []string {
-	const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	// Cari abjad tertinggi yang sudah terpakai
-	nextLetterIndex := 0
-	if len(existingNames) > 0 {
-		var indices []int
-		for _, name := range existingNames {
-			parts := strings.Split(strings.TrimSpace(name), " ")
-			if len(parts) > 0 {
-				lastChar := parts[len(parts)-1]
-				idx := strings.Index(LETTERS, strings.ToUpper(lastChar))
-				if idx >= 0 {
-					indices = append(indices, idx)
-				}
-			}
-		}
-
-		if len(indices) > 0 {
-			maxIdx := -1
-			for _, idx := range indices {
-				if idx > maxIdx {
-					maxIdx = idx
-				}
-			}
-			nextLetterIndex = maxIdx + 1
-		}
-	}
-
-	var newNames []string
-	baseName := majorCode
-
-	for i := 0; i < count; i++ {
-		// Kalau abis Z, dia akan loop balik ke A (tapi sangat jarang terjadi di dunia nyata)
-		letter := string(LETTERS[(nextLetterIndex+i)%26])
-		className := fmt.Sprintf("%s %s %s", levelName, baseName, letter)
-		newNames = append(newNames, className)
-	}
-
-	return newNames
-}
+// generateClassNames logic is removed as we now generate by GradeLevel and ClassNumber
 
 func (s *service) GetAll(ctx context.Context) ([]*ClassResponse, error) {
 	classes, err := s.repo.FindAll(ctx)
@@ -127,7 +85,21 @@ func (s *service) Create(ctx context.Context, req ClassRequest) (*ClassResponse,
 		return nil, ErrMajorRequired
 	}
 
-	existingID, err := s.repo.GetIDByNameAndYear(ctx, req.ClassName, req.AcademicYearID)
+	levelID, levelName, err := s.repo.GetLevelByGrade(ctx, req.GradeLevel)
+	if err != nil {
+		slog.Error("Failed to get level by grade", "error", err)
+		return nil, ErrSystemFail
+	}
+
+	majorCode, err := s.repo.GetMajorCodeByID(ctx, req.MajorID)
+	if err != nil {
+		slog.Error("Failed to get major code", "error", err)
+		return nil, ErrSystemFail
+	}
+
+	className := fmt.Sprintf("%s %s %d", levelName, majorCode, req.ClassNumber)
+
+	existingID, err := s.repo.GetIDByNameAndYear(ctx, className, req.AcademicYearID)
 	if err != nil {
 		slog.Error("Failed to check unique class name", "error", err)
 		return nil, ErrSystemFail
@@ -146,8 +118,10 @@ func (s *service) Create(ctx context.Context, req ClassRequest) (*ClassResponse,
 		ID:                uuid.New().String(),
 		AcademicYearID:    req.AcademicYearID,
 		MajorID:           optionalString(req.MajorID),
-		LevelID:           req.LevelID,
-		ClassName:         req.ClassName,
+		LevelID:           levelID,
+		GradeLevel:        req.GradeLevel,
+		ClassNumber:       req.ClassNumber,
+		ClassName:         className,
 		Classroom:         optionalString(req.Classroom),
 		Capacity:          capacity,
 		HomeroomTeacherID: optionalString(req.HomeroomTeacherID),
@@ -173,29 +147,27 @@ func (s *service) CreateBatch(ctx context.Context, req ClassBatchRequest) ([]*Cl
 		capacity = 36
 	}
 
-	for _, levelID := range req.LevelIDs {
-		levelName := getLevelName(levelID)
-
-		// Tarik nama kelas yang sudah ada di DB untuk (level + major + year)
-		existingNames, err := s.repo.FindNamesByLevelMajorYear(ctx, levelID, req.MajorID, req.AcademicYearID)
+	for _, gradeLevel := range req.GradeLevels {
+		levelID, levelName, err := s.repo.GetLevelByGrade(ctx, gradeLevel)
 		if err != nil {
-			slog.Error("Failed to find existing class names for batch", "error", err)
+			slog.Error("Failed to get level by grade", "error", err)
 			return nil, ErrSystemFail
 		}
 
-		// Generate
-		newNames := generateClassNames(existingNames, levelName, req.MajorCode, req.Count)
-
-		for _, className := range newNames {
+		for i := 1; i <= req.Count; i++ {
+			className := fmt.Sprintf("%s %s %d", levelName, req.MajorCode, i)
+			
 			c := &Class{
 				ID:                uuid.New().String(),
 				AcademicYearID:    req.AcademicYearID,
 				MajorID:           &req.MajorID,
 				LevelID:           levelID,
+				GradeLevel:        gradeLevel,
+				ClassNumber:       i,
 				ClassName:         className,
-				Classroom:         nil, // Default kosong di awal
+				Classroom:         nil,
 				Capacity:          capacity,
-				HomeroomTeacherID: nil, // Belum ada wali kelas
+				HomeroomTeacherID: nil,
 				IsActive:          true,
 				CreatedAt:         now,
 				UpdatedAt:         now,

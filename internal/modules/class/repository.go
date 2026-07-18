@@ -8,11 +8,15 @@ import (
 
 type Repository interface {
 	FindAll(ctx context.Context) ([]*Class, error)
+	FindAllByAcademicYear(ctx context.Context, academicYearID string) ([]*Class, error)
 	FindByID(ctx context.Context, id string) (*Class, error)
 	GetIDByNameAndYear(ctx context.Context, className, academicYearID string) (string, error)
+	GetLevelByGrade(ctx context.Context, grade int) (id string, name string, err error)
+	GetMajorCodeByID(ctx context.Context, majorID string) (string, error)
 	FindNamesByLevelMajorYear(ctx context.Context, levelID, majorID, academicYearID string) ([]string, error)
 	Create(ctx context.Context, class *Class) error
 	CreateBatch(ctx context.Context, classes []*Class) error
+	CreateBatchTx(ctx context.Context, tx *sql.Tx, classes []*Class) error
 	Update(ctx context.Context, class *Class) error
 	Delete(ctx context.Context, id string) error
 }
@@ -33,6 +37,8 @@ SELECT
 	academic_year_id, 
 	major_id, 
 	level_id, 
+	grade_level,
+	class_number,
 	class_name, 
 	classroom, 
 	capacity, 
@@ -43,7 +49,7 @@ SELECT
 FROM classes
 `
 
-const insertClass = `INSERT INTO classes (id, academic_year_id, major_id, level_id, class_name, classroom, capacity, homeroom_teacher_id, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+const insertClass = `INSERT INTO classes (id, academic_year_id, major_id, level_id, grade_level, class_number, class_name, classroom, capacity, homeroom_teacher_id, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 const updateClass = `UPDATE classes SET capacity = ?, homeroom_teacher_id = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`
 const softDeleteClass = `UPDATE classes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`
 
@@ -63,6 +69,8 @@ func scanClass(scanner rowScanner) (*Class, error) {
 		&c.AcademicYearID,
 		&majorID,
 		&c.LevelID,
+		&c.GradeLevel,
+		&c.ClassNumber,
 		&c.ClassName,
 		&classroom,
 		&c.Capacity,
@@ -166,7 +174,7 @@ func (r *repository) Create(ctx context.Context, class *Class) error {
 	}
 	defer tx.Rollback()
 
-	result, err := tx.ExecContext(ctx, insertClass, class.ID, class.AcademicYearID, class.MajorID, class.LevelID, class.ClassName, class.Classroom, class.Capacity, class.HomeroomTeacherID, class.IsActive, class.CreatedAt, class.UpdatedAt)
+	result, err := tx.ExecContext(ctx, insertClass, class.ID, class.AcademicYearID, class.MajorID, class.LevelID, class.GradeLevel, class.ClassNumber, class.ClassName, class.Classroom, class.Capacity, class.HomeroomTeacherID, class.IsActive, class.CreatedAt, class.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -195,7 +203,7 @@ func (r *repository) CreateBatch(ctx context.Context, classes []*Class) error {
 	defer stmt.Close()
 
 	for _, class := range classes {
-		result, err := stmt.ExecContext(ctx, class.ID, class.AcademicYearID, class.MajorID, class.LevelID, class.ClassName, class.Classroom, class.Capacity, class.HomeroomTeacherID, class.IsActive, class.CreatedAt, class.UpdatedAt)
+		result, err := stmt.ExecContext(ctx, class.ID, class.AcademicYearID, class.MajorID, class.LevelID, class.GradeLevel, class.ClassNumber, class.ClassName, class.Classroom, class.Capacity, class.HomeroomTeacherID, class.IsActive, class.CreatedAt, class.UpdatedAt)
 		if err != nil {
 			return err
 		}
@@ -253,4 +261,59 @@ func (r *repository) Delete(ctx context.Context, id string) error {
 	}
 
 	return tx.Commit()
+}
+
+func (r *repository) GetLevelByGrade(ctx context.Context, grade int) (string, string, error) {
+	var id, name string
+	err := r.db.QueryRowContext(ctx, "SELECT id, name FROM levels WHERE grade_level = ?", grade).Scan(&id, &name)
+	return id, name, err
+}
+
+func (r *repository) GetMajorCodeByID(ctx context.Context, majorID string) (string, error) {
+	var code string
+	err := r.db.QueryRowContext(ctx, "SELECT major_code FROM majors WHERE id = ?", majorID).Scan(&code)
+	return code, err
+}
+
+func (r *repository) FindAllByAcademicYear(ctx context.Context, academicYearID string) ([]*Class, error) {
+	query := selectClass + ` WHERE academic_year_id = ? AND deleted_at IS NULL`
+	rows, err := r.db.QueryContext(ctx, query, academicYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var classes []*Class
+	for rows.Next() {
+		c, err := scanClass(rows)
+		if err != nil {
+			return nil, err
+		}
+		classes = append(classes, c)
+	}
+	return classes, nil
+}
+
+func (r *repository) CreateBatchTx(ctx context.Context, tx *sql.Tx, classes []*Class) error {
+	stmt, err := tx.PrepareContext(ctx, insertClass)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, class := range classes {
+		result, err := stmt.ExecContext(ctx, class.ID, class.AcademicYearID, class.MajorID, class.LevelID, class.GradeLevel, class.ClassNumber, class.ClassName, class.Classroom, class.Capacity, class.HomeroomTeacherID, class.IsActive, class.CreatedAt, class.UpdatedAt)
+		if err != nil {
+			return err
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			return errors.New("failed to insert class in batch tx")
+		}
+	}
+
+	return nil
 }

@@ -7,6 +7,8 @@ type Class struct {
 	AcademicYearID    string
 	MajorID           *string
 	LevelID           string
+	GradeLevel        int
+	ClassNumber       int
 	ClassName         string
 	Classroom         *string
 	Capacity          int
@@ -15,6 +17,3 @@ type Class struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
-
-// Untuk level, kita sementara hardcode sesuai DB/frontend requirement:
-// "lvl-10" = "X", "lvl-11" = "XI", "lvl-12" = "XII"
