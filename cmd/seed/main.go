@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// Jalankan seeder wilayah Indonesia
-	csvDir := filepath.Join("..", "Wilayah-Indonesia-Beserta-Kode-Pos", "CSV")
+	csvDir := filepath.Join("Wilayah-Indonesia-Beserta-Kode-Pos", "CSV")
 	if err := database.SeedWilayah(db, csvDir); err != nil {
 		log.Fatalf(" Gagal seeding wilayah Indonesia: %v", err)
 	}
