@@ -104,6 +104,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Berhasil mengambil data tahun akademik", y)
 }
 
+
 // Create menambahkan data tahun akademik baru
 // @Summary      Create new academic year
 // @Description  Add a new academic year to the system
@@ -379,4 +380,40 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Berhasil menghapus data tahun akademik", nil)
+}
+
+func (h *Handler) FinalizePromotion(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		response.Error(c, http.StatusBadRequest, "academic year ID is required", nil)
+		return
+	}
+
+	var req FinalizePromotionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid request format", nil)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second) // Waktu dinaikin karena ini operasi batch yang berat
+	defer cancel()
+
+	if err := h.service.FinalizePromotion(ctx, id, req); err != nil {
+		if errors.Is(err, ErrAcademicYearNotFound) {
+			response.Error(c, http.StatusNotFound, err.Error(), nil)
+			return
+		}
+		if err.Error() == "academic year is not ready for promotion" || err.Error() == "target academic year not found" {
+			response.Error(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		if err.Error() == "promotion already processed or is running" {
+			response.Error(c, http.StatusConflict, err.Error(), nil)
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "failed to finalize promotion", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "promotion process completed successfully", nil)
 }

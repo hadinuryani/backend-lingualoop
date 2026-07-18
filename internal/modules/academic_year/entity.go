@@ -40,4 +40,39 @@ const (
 
 	SemesterOddLabel  = "GANJIL"
 	SemesterEvenLabel = "GENAP"
+
+	JobStatusPending = "PENDING"
+	JobStatusRunning = "RUNNING"
+	JobStatusDone    = "DONE"
+	JobStatusFailed  = "FAILED"
+
+	PromotionStatusPromoted  = "PROMOTED"
+	PromotionStatusRetained  = "RETAINED"
+	PromotionStatusGraduated = "GRADUATED"
+	PromotionStatusFailed    = "FAILED"
 )
+
+type PromotionJob struct {
+	ID              string
+	AcademicYearID  string
+	Status          string
+	TotalStudents   int
+	SuccessStudents int
+	FailedStudents  int
+	ExecutedBy      *string
+	StartedAt       *time.Time
+	FinishedAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type StudentPromotionHistory struct {
+	ID                 string
+	StudentID          string
+	FromClassID        *string
+	ToClassID          *string
+	FromAcademicYearID string
+	ToAcademicYearID   *string
+	Status             string
+	CreatedAt          time.Time
+}

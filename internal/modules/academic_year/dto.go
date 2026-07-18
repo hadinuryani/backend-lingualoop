@@ -25,8 +25,7 @@ type CloseSemesterRequest struct {
 
 type StudentPromotion struct {
 	StudentID string `json:"student_id" binding:"required"`
-	ClassID   string `json:"class_id" binding:"required"` // Kelas saat ini
-	Status    string `json:"status" binding:"required,oneof=Lulus 'Naik Kelas' 'Tinggal Kelas' 'Tidak Lulus'"`
+	Status    string `json:"status" binding:"required,oneof=PROMOTED RETAINED GRADUATED FAILED"`
 }
 
 type FinalizePromotionRequest struct {

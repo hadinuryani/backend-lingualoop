@@ -4,10 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	
+	"backend-lingualoop/internal/modules/class"
+	"backend-lingualoop/internal/modules/student"
 )
 
 type Service interface {
@@ -19,18 +23,22 @@ type Service interface {
 	UpdateSemesterStatus(ctx context.Context, id string, req SemesterStatusRequest) (*AcademicYearResponse, error)
 	CloseSemester(ctx context.Context, id string, req CloseSemesterRequest) (*AcademicYearResponse, error)
 	Delete(ctx context.Context, id string) error
-
-	// FinalizePromotion akan diimplementasikan nanti saat student_classes module tersedia
-	// FinalizePromotion(ctx context.Context, id string, req FinalizePromotionRequest) error
+	FinalizePromotion(ctx context.Context, id string, req FinalizePromotionRequest) error
 }
 
 type service struct {
-	repo Repository
+	repo        Repository
+	classRepo   class.Repository
+	studentRepo student.Repository
+	db          *sql.DB
 }
 
-func NewService(repo Repository) Service {
+func NewService(repo Repository, classRepo class.Repository, studentRepo student.Repository, db *sql.DB) Service {
 	return &service{
-		repo: repo,
+		repo:        repo,
+		classRepo:   classRepo,
+		studentRepo: studentRepo,
+		db:          db,
 	}
 }
 
@@ -353,4 +361,309 @@ func (s *service) Delete(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func (s *service) FinalizePromotion(ctx context.Context, id string, req FinalizePromotionRequest) error {
+	sourceYear, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return ErrAcademicYearNotFound
+	}
+	
+	if sourceYear.Status != StatusPendingPromotion {
+		return errors.New("academic year is not ready for promotion")
+	}
+
+	targetYear, err := s.repo.FindByID(ctx, req.TargetYearID)
+	if err != nil {
+		return errors.New("target academic year not found")
+	}
+
+	// Cek Idempotency / Job
+	job, err := s.repo.GetPromotionJob(ctx, sourceYear.ID)
+	if err != nil {
+		return ErrSystemFail
+	}
+	if job != nil && (job.Status == JobStatusRunning || job.Status == JobStatusDone) {
+		return errors.New("promotion already processed or is running")
+	}
+
+	now := time.Now()
+	newJob := &PromotionJob{
+		ID:              uuid.New().String(),
+		AcademicYearID:  sourceYear.ID,
+		Status:          JobStatusRunning,
+		TotalStudents:   len(req.Promotions),
+		StartedAt:       &now,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if err := s.repo.CreatePromotionJob(ctx, newJob); err != nil {
+		slog.Error("Failed to create promotion job", "error", err)
+		return ErrSystemFail
+	}
+
+	// Error handler for job (update status to FAILED on defer panic/error)
+	var finalErr error
+	defer func() {
+		if finalErr != nil {
+			newJob.Status = JobStatusFailed
+		} else {
+			newJob.Status = JobStatusDone
+		}
+		newJob.FinishedAt = &now
+		newJob.UpdatedAt = time.Now()
+		_ = s.repo.UpdatePromotionJob(context.Background(), newJob)
+	}()
+
+	// 1. Begin Tx
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		finalErr = err
+		return ErrSystemFail
+	}
+	defer tx.Rollback()
+
+	// 2. Data Load (Classes & Students of source year)
+	sourceClasses, err := s.classRepo.FindAllByAcademicYear(ctx, sourceYear.ID)
+	if err != nil {
+		finalErr = err
+		return err
+	}
+	
+	sourceStudents, err := s.studentRepo.FindAllByAcademicYear(ctx, sourceYear.ID)
+	if err != nil {
+		finalErr = err
+		return err
+	}
+
+	// Bikin map untuk source classes supaya gampang nyari GradeLevel & ClassNumber nya
+	classMap := make(map[string]*class.Class)
+	for _, c := range sourceClasses {
+		classMap[c.ID] = c
+	}
+
+	// 3. Class Generation (Cloning)
+	var targetClasses []*class.Class
+	newClassMapByGradeMajorNumber := make(map[string]string) // key: "grade_major_number", value: new_class_id
+
+	// Untuk kelas target, kita clone saja dari kelas sumber, dengan id tahun ajaran target
+	for _, c := range sourceClasses {
+		// GradeLevel naik 1 (atau tetep jika misal mentok 12, tapi logic bisnis di sini kita clone semua)
+		newGrade := c.GradeLevel + 1
+		if newGrade > 12 {
+			continue // Lulus, ga perlu dibikinin kelas di tahun depan untuk angkatan ini (kecuali kalau tinggal kelas)
+		}
+		
+		levelID, levelName, err := s.classRepo.GetLevelByGrade(ctx, newGrade)
+		if err != nil {
+			// Kalau misal grade 13 ga ketemu, skip. Tapi udah di-handle newGrade > 12
+			continue
+		}
+
+		majorCode := ""
+		if c.MajorID != nil {
+			mc, _ := s.classRepo.GetMajorCodeByID(ctx, *c.MajorID)
+			majorCode = mc
+		}
+
+		className := fmt.Sprintf("%s %s %d", levelName, majorCode, c.ClassNumber)
+		newClass := &class.Class{
+			ID:                uuid.New().String(),
+			AcademicYearID:    targetYear.ID,
+			MajorID:           c.MajorID,
+			LevelID:           levelID,
+			GradeLevel:        newGrade,
+			ClassNumber:       c.ClassNumber,
+			ClassName:         className,
+			Classroom:         nil, // Reset classroom
+			Capacity:          c.Capacity,
+			HomeroomTeacherID: nil, // Reset guru
+			IsActive:          true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		}
+		targetClasses = append(targetClasses, newClass)
+		
+		key := fmt.Sprintf("%d_%s_%d", newGrade, optionalStringVal(c.MajorID), c.ClassNumber)
+		newClassMapByGradeMajorNumber[key] = newClass.ID
+	}
+
+	// Tambahkan class target untuk siswa yang "Tinggal Kelas" (mengulang grade_level yang sama)
+	for _, c := range sourceClasses {
+		key := fmt.Sprintf("%d_%s_%d", c.GradeLevel, optionalStringVal(c.MajorID), c.ClassNumber)
+		if _, exists := newClassMapByGradeMajorNumber[key]; !exists {
+			levelID, levelName, _ := s.classRepo.GetLevelByGrade(ctx, c.GradeLevel)
+			majorCode := ""
+			if c.MajorID != nil {
+				mc, _ := s.classRepo.GetMajorCodeByID(ctx, *c.MajorID)
+				majorCode = mc
+			}
+			
+			className := fmt.Sprintf("%s %s %d", levelName, majorCode, c.ClassNumber)
+			newClass := &class.Class{
+				ID:                uuid.New().String(),
+				AcademicYearID:    targetYear.ID,
+				MajorID:           c.MajorID,
+				LevelID:           levelID,
+				GradeLevel:        c.GradeLevel,
+				ClassNumber:       c.ClassNumber,
+				ClassName:         className,
+				Classroom:         nil,
+				Capacity:          c.Capacity,
+				HomeroomTeacherID: nil,
+				IsActive:          true,
+				CreatedAt:         now,
+				UpdatedAt:         now,
+			}
+			targetClasses = append(targetClasses, newClass)
+			newClassMapByGradeMajorNumber[key] = newClass.ID
+		}
+	}
+
+	if err := s.classRepo.CreateBatchTx(ctx, tx, targetClasses); err != nil {
+		finalErr = err
+		return err
+	}
+
+	// Map request
+	promoReqMap := make(map[string]string)
+	for _, p := range req.Promotions {
+		promoReqMap[p.StudentID] = p.Status
+	}
+
+	// 4. Student Movement
+	var studentClasses []*student.StudentClass
+	var studentPromotions []*StudentPromotionHistory
+	var updatedStudents []*student.Student
+
+	successCount := 0
+	failedCount := 0
+
+	for _, st := range sourceStudents {
+		statusReq, ok := promoReqMap[st.ID]
+		if !ok {
+			failedCount++
+			continue
+		}
+
+		oldClassID := st.CurrentClassID
+		var oldClass *class.Class
+		if oldClassID != nil {
+			oldClass = classMap[*oldClassID]
+		}
+
+		var targetClassID *string
+		newStudentStatus := st.Status
+		var newLevelID *string = st.ClassLevel // default
+
+		promoStatus := PromotionStatusFailed
+		
+		if statusReq == PromotionStatusPromoted {
+			promoStatus = PromotionStatusPromoted
+			successCount++
+			
+			if oldClass != nil {
+				newGrade := oldClass.GradeLevel + 1
+				key := fmt.Sprintf("%d_%s_%d", newGrade, optionalStringVal(oldClass.MajorID), oldClass.ClassNumber)
+				if ncid, exists := newClassMapByGradeMajorNumber[key]; exists {
+					targetClassID = &ncid
+					
+					// update student's level_id
+					lid, _, _ := s.classRepo.GetLevelByGrade(ctx, newGrade)
+					newLevelID = &lid
+				}
+			}
+		} else if statusReq == PromotionStatusGraduated {
+			promoStatus = PromotionStatusGraduated
+			newStudentStatus = student.StudentGraduated
+			successCount++
+		} else if statusReq == PromotionStatusRetained {
+			promoStatus = PromotionStatusRetained
+			successCount++
+			
+			// Siswa tetap di grade lama, masuk ke kelas dengan grade yg sama
+			if oldClass != nil {
+				key := fmt.Sprintf("%d_%s_%d", oldClass.GradeLevel, optionalStringVal(oldClass.MajorID), oldClass.ClassNumber)
+				if ncid, exists := newClassMapByGradeMajorNumber[key]; exists {
+					targetClassID = &ncid
+				}
+			}
+		} else {
+			promoStatus = PromotionStatusFailed
+			failedCount++
+		}
+
+		// Insert history
+		studentPromotions = append(studentPromotions, &StudentPromotionHistory{
+			ID:                 uuid.New().String(),
+			StudentID:          st.ID,
+			FromClassID:        oldClassID,
+			ToClassID:          targetClassID,
+			FromAcademicYearID: sourceYear.ID,
+			ToAcademicYearID:   &targetYear.ID,
+			Status:             promoStatus,
+			CreatedAt:          now,
+		})
+
+		// Jika pindah kelas, tambahkan student_classes
+		if targetClassID != nil {
+			studentClasses = append(studentClasses, &student.StudentClass{
+				ID:             uuid.New().String(),
+				StudentID:      st.ID,
+				ClassID:        *targetClassID,
+				AcademicYearID: targetYear.ID,
+				IsActive:       true,
+				CreatedAt:      now,
+			})
+		}
+
+		// Update student
+		st.ClassLevel = newLevelID
+		st.Status = newStudentStatus
+		updatedStudents = append(updatedStudents, st)
+	}
+
+	// The Grand Batch Inserts
+	if err := s.studentRepo.InsertStudentClassesBatchTx(ctx, tx, studentClasses); err != nil {
+		finalErr = err
+		return err
+	}
+
+	if err := s.repo.InsertPromotionsBatchTx(ctx, tx, studentPromotions); err != nil {
+		finalErr = err
+		return err
+	}
+
+	if err := s.studentRepo.UpdateLevelAndStatusBatchTx(ctx, tx, updatedStudents); err != nil {
+		finalErr = err
+		return err
+	}
+
+	// 5. Update Years
+	if err := s.repo.UpdatePromotionCompletedAtTx(ctx, tx, sourceYear.ID); err != nil {
+		finalErr = err
+		return err
+	}
+	if err := s.repo.UpdateStatusTx(ctx, tx, sourceYear.ID, StatusFinished); err != nil {
+		finalErr = err
+		return err
+	}
+
+	newJob.SuccessStudents = successCount
+	newJob.FailedStudents = failedCount
+
+	if err := tx.Commit(); err != nil {
+		finalErr = err
+		return ErrSystemFail
+	}
+
+	return nil
+}
+
+func optionalStringVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

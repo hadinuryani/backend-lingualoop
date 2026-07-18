@@ -17,6 +17,12 @@ type Repository interface {
 	Delete(ctx context.Context, id string) error
 	CheckDraftExists(ctx context.Context) (bool, error)
 	GetLatestAcademicYearByDomain(ctx context.Context) (*AcademicYear, error)
+	GetPromotionJob(ctx context.Context, academicYearID string) (*PromotionJob, error)
+	CreatePromotionJob(ctx context.Context, job *PromotionJob) error
+	UpdatePromotionJob(ctx context.Context, job *PromotionJob) error
+	InsertPromotionsBatchTx(ctx context.Context, tx *sql.Tx, promotions []*StudentPromotionHistory) error
+	UpdatePromotionCompletedAtTx(ctx context.Context, tx *sql.Tx, yearID string) error
+	UpdateStatusTx(ctx context.Context, tx *sql.Tx, yearID, status string) error
 }
 
 type repository struct {
@@ -255,4 +261,61 @@ func (r *repository) GetLatestAcademicYearByDomain(ctx context.Context) (*Academ
 		return nil, err
 	}
 	return ay, nil
+}
+
+func (r *repository) GetPromotionJob(ctx context.Context, academicYearID string) (*PromotionJob, error) {
+	query := `SELECT id, academic_year_id, status, total_students, success_students, failed_students, executed_by, started_at, finished_at, created_at, updated_at FROM promotion_jobs WHERE academic_year_id = ? ORDER BY created_at DESC LIMIT 1`
+	var job PromotionJob
+	err := r.db.QueryRowContext(ctx, query, academicYearID).Scan(
+		&job.ID, &job.AcademicYearID, &job.Status, &job.TotalStudents, &job.SuccessStudents, &job.FailedStudents, &job.ExecutedBy, &job.StartedAt, &job.FinishedAt, &job.CreatedAt, &job.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // Not found is not an error
+		}
+		return nil, err
+	}
+	return &job, nil
+}
+
+func (r *repository) CreatePromotionJob(ctx context.Context, job *PromotionJob) error {
+	query := `INSERT INTO promotion_jobs (id, academic_year_id, status, total_students, success_students, failed_students, executed_by, started_at, finished_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.ExecContext(ctx, query, job.ID, job.AcademicYearID, job.Status, job.TotalStudents, job.SuccessStudents, job.FailedStudents, job.ExecutedBy, job.StartedAt, job.FinishedAt, job.CreatedAt, job.UpdatedAt)
+	return err
+}
+
+func (r *repository) UpdatePromotionJob(ctx context.Context, job *PromotionJob) error {
+	query := `UPDATE promotion_jobs SET status = ?, total_students = ?, success_students = ?, failed_students = ?, finished_at = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, job.Status, job.TotalStudents, job.SuccessStudents, job.FailedStudents, job.FinishedAt, job.UpdatedAt, job.ID)
+	return err
+}
+
+func (r *repository) InsertPromotionsBatchTx(ctx context.Context, tx *sql.Tx, promotions []*StudentPromotionHistory) error {
+	if len(promotions) == 0 {
+		return nil
+	}
+	query := `INSERT INTO student_promotions (id, student_id, from_class_id, to_class_id, from_academic_year_id, to_academic_year_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, p := range promotions {
+		_, err := stmt.ExecContext(ctx, p.ID, p.StudentID, p.FromClassID, p.ToClassID, p.FromAcademicYearID, p.ToAcademicYearID, p.Status, p.CreatedAt)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *repository) UpdatePromotionCompletedAtTx(ctx context.Context, tx *sql.Tx, yearID string) error {
+	_, err := tx.ExecContext(ctx, `UPDATE academic_years SET promotion_completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, yearID)
+	return err
+}
+
+func (r *repository) UpdateStatusTx(ctx context.Context, tx *sql.Tx, yearID, status string) error {
+	_, err := tx.ExecContext(ctx, `UPDATE academic_years SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, status, yearID)
+	return err
 }

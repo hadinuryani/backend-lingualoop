@@ -3,11 +3,17 @@ package academic_year
 import (
 	"database/sql"
 	"github.com/gin-gonic/gin"
+	
+	"backend-lingualoop/internal/modules/class"
+	"backend-lingualoop/internal/modules/student"
 )
 
 func RegisterRoute(router *gin.RouterGroup, db *sql.DB) {
 	repo := NewRepository(db)
-	service := NewService(repo)
+	classRepo := class.NewRepository(db)
+	studentRepo := student.NewRepository(db)
+	
+	service := NewService(repo, classRepo, studentRepo, db)
 	templateService := NewTemplateService(repo)
 	handler := NewHandler(service, templateService)
 
@@ -24,7 +30,6 @@ func RegisterRoute(router *gin.RouterGroup, db *sql.DB) {
 		ay.PUT("/:id/semester-status", handler.UpdateSemesterStatus)
 		ay.PUT("/:id/close-semester", handler.CloseSemester)
 
-		// Kenaikan kelas ditaruh di sini nanti
-		// ay.POST("/:id/finalize-promotion", handler.FinalizePromotion)
+		ay.POST("/:id/finalize-promotion", handler.FinalizePromotion)
 	}
 }
