@@ -16,6 +16,8 @@ import (
 	"backend-lingualoop/internal/modules/teacher"
 	"backend-lingualoop/internal/modules/region"
 	"backend-lingualoop/internal/modules/file"
+	"backend-lingualoop/internal/modules/schedule"
+	"backend-lingualoop/internal/modules/settings"
 	"backend-lingualoop/pkg/jwt"
 	"backend-lingualoop/pkg/storage"
 
@@ -65,9 +67,11 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		student.RegisterRoute(adminProtected, db)
 		class.RegisterRoute(adminProtected, db)
 		subject.RegisterRoute(adminProtected, db)
+		schedule.RegisterRoute(adminProtected, db)
 		academic_year.RegisterRoute(adminProtected, db)
 		dashboard.RegisterRoute(adminProtected, db)
 		region.RegisterRoute(adminProtected, db)
+		settings.RegisterRoute(adminProtected, db, store)
 
 	}
 
