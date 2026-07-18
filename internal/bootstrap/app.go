@@ -15,7 +15,9 @@ import (
 	"backend-lingualoop/internal/modules/subject"
 	"backend-lingualoop/internal/modules/teacher"
 	"backend-lingualoop/internal/modules/region"
+	"backend-lingualoop/internal/modules/file"
 	"backend-lingualoop/pkg/jwt"
+	"backend-lingualoop/pkg/storage"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -34,6 +36,9 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 	// 3. Pasang Global Middleware (seperti CORS)
 	router.Use(middleware.CORS())
 
+	// Static Route untuk file publik
+	router.Static("/uploads/public", "./uploads/public")
+
 	// 4. Setup API Grouping & Versioning
 	api := router.Group("/api")
 	v1 := api.Group("/v1")
@@ -41,6 +46,10 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		// Registrasi Modul Fitur untuk V1
 		cfg := config.GetConfig()
 		jwtManager := jwt.NewManager(cfg.JWT.Secret, cfg.JWT.ExpirationHours)
+
+		// Setup Storage
+		baseURL := "http://localhost:" + cfg.App.Port // TODO: Get from env config for production
+		store := storage.NewLocalStorage("./uploads", baseURL+"/uploads")
 
 		// Register Public Route
 		auth.RegisterRoute(v1, db, jwtManager)
@@ -50,7 +59,8 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		adminProtected.Use(middleware.RequireAuth(jwtManager, db))
 		adminProtected.Use(middleware.RequireRole("admin"))
 
-		major.RegisterRoute(adminProtected, db)
+		file.RegisterRoute(adminProtected, db, store)
+		major.RegisterRoute(adminProtected, db, store)
 		teacher.RegisterRoute(adminProtected, db)
 		student.RegisterRoute(adminProtected, db)
 		class.RegisterRoute(adminProtected, db)

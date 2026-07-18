@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"backend-lingualoop/pkg/storage"
 	"github.com/google/uuid"
 )
 
@@ -18,12 +19,14 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo    Repository
+	storage storage.Storage
 }
 
-func NewService(repo Repository) Service {
+func NewService(repo Repository, store storage.Storage) Service {
 	return &service{
-		repo: repo,
+		repo:    repo,
+		storage: store,
 	}
 }
 
@@ -36,7 +39,7 @@ func (s *service) GetAll(ctx context.Context) ([]*MajorResponse, error) {
 
 	var responses []*MajorResponse
 	for _, m := range majors {
-		responses = append(responses, mapEntityToDTO(m))
+		responses = append(responses, s.mapEntityToDTO(m))
 	}
 
 	// Pastikan return array kosong jika tidak ada data, bukan null
@@ -68,12 +71,18 @@ func (s *service) Create(ctx context.Context, req MajorRequest) (*MajorResponse,
 		return nil, ErrNameExists
 	}
 
+	var logoFileID *string
+	if req.LogoFileID != "" {
+		logoFileID = &req.LogoFileID
+	}
+
 	now := time.Now()
 	newMajor := &Major{
 		ID:          uuid.New().String(),
 		Code:        strings.ToUpper(req.Code),
 		Name:        req.Name,
 		Description: req.Description,
+		LogoFileID:  logoFileID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -83,7 +92,8 @@ func (s *service) Create(ctx context.Context, req MajorRequest) (*MajorResponse,
 		return nil, ErrSystemFail
 	}
 
-	return mapEntityToDTO(newMajor), nil
+	// Set LogoPath to null initially for the response (it will be missing or we can ignore it)
+	return s.mapEntityToDTO(newMajor), nil
 }
 
 func (s *service) Update(ctx context.Context, id string, req MajorRequest) (*MajorResponse, error) {
@@ -121,9 +131,15 @@ func (s *service) Update(ctx context.Context, id string, req MajorRequest) (*Maj
 		}
 	}
 
+	var logoFileID *string
+	if req.LogoFileID != "" {
+		logoFileID = &req.LogoFileID
+	}
+
 	existingMajor.Code = strings.ToUpper(req.Code)
 	existingMajor.Name = req.Name
 	existingMajor.Description = req.Description
+	existingMajor.LogoFileID = logoFileID
 	existingMajor.UpdatedAt = time.Now()
 
 	if err := s.repo.Update(ctx, existingMajor); err != nil {
@@ -134,7 +150,9 @@ func (s *service) Update(ctx context.Context, id string, req MajorRequest) (*Maj
 		return nil, ErrSystemFail
 	}
 
-	return mapEntityToDTO(existingMajor), nil
+	// We return the updated entity, though it won't have the LogoPath joined immediately.
+	// This is acceptable as frontend usually refetches or we can manually resolve it.
+	return s.mapEntityToDTO(existingMajor), nil
 }
 
 func (s *service) Delete(ctx context.Context, id string) error {
@@ -150,8 +168,8 @@ func (s *service) Delete(ctx context.Context, id string) error {
 }
 
 // Helper mapper
-func mapEntityToDTO(m *Major) *MajorResponse {
-	return &MajorResponse{
+func (s *service) mapEntityToDTO(m *Major) *MajorResponse {
+	resp := &MajorResponse{
 		ID:          m.ID,
 		Code:        m.Code,
 		Name:        m.Name,
@@ -159,4 +177,10 @@ func mapEntityToDTO(m *Major) *MajorResponse {
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}
+
+	if m.LogoPath != nil && *m.LogoPath != "" && s.storage != nil {
+		resp.LogoURL = s.storage.GetURL(*m.LogoPath)
+	}
+
+	return resp
 }

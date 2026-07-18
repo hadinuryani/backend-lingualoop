@@ -3,12 +3,13 @@ package major
 import (
 	"database/sql"
 
+	"backend-lingualoop/pkg/storage"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoute(router *gin.RouterGroup, db *sql.DB) {
+func RegisterRoute(router *gin.RouterGroup, db *sql.DB, store storage.Storage) {
 	repo := NewRepository(db)
-	service := NewService(repo)
+	service := NewService(repo, store)
 	handler := NewHandler(service)
 
 	majorRoute := router.Group("/majors")

@@ -8,6 +8,8 @@ type Major struct {
 	Code        string
 	Name        string
 	Description string
+	LogoFileID  *string
+	LogoPath    *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
