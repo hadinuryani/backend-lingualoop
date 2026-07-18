@@ -58,3 +58,20 @@ type AcademicYearResponse struct {
 	CreatedAt      time.Time    `json:"created_at"`
 	UpdatedAt      time.Time    `json:"updated_at"`
 }
+
+type TemplateData struct {
+	Year                     string `json:"year"`
+	StartDate                string `json:"start_date"`
+	EndDate                  string `json:"end_date"`
+	SemesterGanjilStart      string `json:"semester_ganjil_start"`
+	SemesterGanjilKbm        string `json:"semester_ganjil_kbm"`
+	SemesterGanjilAssessment string `json:"semester_ganjil_assessment"`
+	SemesterGenapStart       string `json:"semester_genap_start"`
+	SemesterGenapKbm         string `json:"semester_genap_kbm"`
+	SemesterGenapAssessment  string `json:"semester_genap_assessment"`
+}
+
+type TemplateResponse struct {
+	SourceYear string       `json:"source_year"`
+	Template   TemplateData `json:"template"`
+}

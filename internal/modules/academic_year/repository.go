@@ -15,6 +15,8 @@ type Repository interface {
 	Create(ctx context.Context, ay *AcademicYear) error
 	Update(ctx context.Context, ay *AcademicYear) error
 	Delete(ctx context.Context, id string) error
+	CheckDraftExists(ctx context.Context) (bool, error)
+	GetLatestAcademicYearByDomain(ctx context.Context) (*AcademicYear, error)
 }
 
 type repository struct {
@@ -53,6 +55,8 @@ const softDeleteAcademicYear = `UPDATE academic_years SET deleted_at = CURRENT_T
 
 const selectAcademicYearIDByYear = `SELECT id FROM academic_years WHERE year = ? AND deleted_at IS NULL LIMIT 1`
 const checkActiveExcept = `SELECT EXISTS(SELECT 1 FROM academic_years WHERE status = ? AND id != ? AND deleted_at IS NULL)`
+const checkDraftExistsQuery = `SELECT EXISTS(SELECT 1 FROM academic_years WHERE status = 'Draft' AND deleted_at IS NULL)`
+const selectLatestAcademicYearQuery = selectAcademicYear + ` WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -230,4 +234,25 @@ func (r *repository) Delete(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func (r *repository) CheckDraftExists(ctx context.Context) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, checkDraftExistsQuery).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (r *repository) GetLatestAcademicYearByDomain(ctx context.Context) (*AcademicYear, error) {
+	row := r.db.QueryRowContext(ctx, selectLatestAcademicYearQuery)
+	ay, err := scanAY(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAcademicYearNotFound
+		}
+		return nil, err
+	}
+	return ay, nil
 }

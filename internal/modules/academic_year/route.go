@@ -8,11 +8,13 @@ import (
 func RegisterRoute(router *gin.RouterGroup, db *sql.DB) {
 	repo := NewRepository(db)
 	service := NewService(repo)
-	handler := NewHandler(service)
+	templateService := NewTemplateService(repo)
+	handler := NewHandler(service, templateService)
 
 	ay := router.Group("/academic-years")
 	{
 		ay.GET("", handler.GetAll)
+		ay.GET("/template", handler.GetTemplate)
 		ay.GET("/:id", handler.GetByID)
 		ay.POST("", handler.Create)
 		ay.PUT("/:id", handler.Update)

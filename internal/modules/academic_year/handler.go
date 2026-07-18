@@ -11,13 +11,40 @@ import (
 )
 
 type Handler struct {
-	service Service
+	service         Service
+	templateService TemplateService
 }
 
-func NewHandler(service Service) *Handler {
+func NewHandler(service Service, templateService TemplateService) *Handler {
 	return &Handler{
-		service: service,
+		service:         service,
+		templateService: templateService,
 	}
+}
+
+// isValidationError mengecek apakah error berasal dari validasi bisnis (bukan error sistem).
+// Error validasi harus dikembalikan sebagai 400 Bad Request, bukan 500.
+func isValidationError(err error) bool {
+	validationErrors := []error{
+		ErrInvalidDate,
+		ErrInvalidDateFormat,
+		ErrInvalidYearFormat,
+		ErrInvalidYearSequence,
+		ErrStartDateYearMismatch,
+		ErrEndDateYearMismatch,
+		ErrAcademicRangeTooLong,
+		ErrSemesterOutOfRange,
+		ErrSemesterDateOrder,
+		ErrOddBeforeEven,
+		ErrInvalidSemesterStatus,
+		ErrSemesterNotActive,
+	}
+	for _, ve := range validationErrors {
+		if errors.Is(err, ve) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAll mengambil semua data tahun akademik
@@ -105,7 +132,9 @@ func (h *Handler) Create(c *gin.Context) {
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, ErrAcademicYearExists) {
 			statusCode = http.StatusConflict
-		} else if err.Error() == "format start_date tidak valid (Gunakan YYYY-MM-DD)" || err.Error() == "format end_date tidak valid (Gunakan YYYY-MM-DD)" {
+		} else if errors.Is(err, ErrDraftExists) {
+			statusCode = http.StatusConflict
+		} else if isValidationError(err) {
 			statusCode = http.StatusBadRequest
 		}
 		response.Error(c, statusCode, err.Error(), nil)
@@ -153,6 +182,8 @@ func (h *Handler) Update(c *gin.Context) {
 			statusCode = http.StatusNotFound
 		} else if errors.Is(err, ErrAcademicYearExists) {
 			statusCode = http.StatusConflict
+		} else if isValidationError(err) {
+			statusCode = http.StatusBadRequest
 		}
 		response.Error(c, statusCode, err.Error(), nil)
 		return
@@ -197,6 +228,33 @@ func (h *Handler) Activate(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Berhasil mengaktifkan tahun akademik", res)
+}
+
+// GetTemplate menghasilkan template tahun akademik baru berdasarkan tahun sebelumnya
+// @Summary      Get academic year template
+// @Description  Generate a template for the next academic year with dates shifted by +1 year. Fails if a draft already exists.
+// @Tags         Academic Years
+// @Produce      json
+// @Success      200 {object} response.DefaultResponse{data=TemplateResponse}
+// @Failure      409 {object} response.DefaultResponse
+// @Failure      500 {object} response.DefaultResponse
+// @Router       /academic-years/template [get]
+// @Security     BearerAuth
+func (h *Handler) GetTemplate(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.templateService.GenerateNext(ctx)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, ErrDraftExists) {
+			statusCode = http.StatusConflict
+		}
+		response.Error(c, statusCode, err.Error(), nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Berhasil membuat template tahun akademik", res)
 }
 
 // UpdateSemesterStatus mengubah status sub-semester (ganjil/genap)

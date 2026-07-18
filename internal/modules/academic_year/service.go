@@ -34,6 +34,8 @@ func NewService(repo Repository) Service {
 	}
 }
 
+// --- Helper Functions ---
+
 func parseDate(dateStr string) (time.Time, error) {
 	if dateStr == "" {
 		return time.Time{}, errors.New("date is empty")
@@ -66,6 +68,79 @@ func formatNullDate(nt sql.NullTime) string {
 	return nt.Time.Format("2006-01-02")
 }
 
+// buildEntity mengkonstruksi AcademicYear entity dari request dan hasil parsing yang sudah tervalidasi.
+func buildEntity(req AcademicYearRequest, dates *parsedDates) *AcademicYear {
+	now := time.Now()
+	return &AcademicYear{
+		ID:                     uuid.New().String(),
+		Year:                   req.Year,
+		StartDate:              dates.StartDate,
+		EndDate:                dates.EndDate,
+		Status:                 StatusDraft,
+		SemGanjilStartDate:     dates.Ganjil.Start,
+		SemGanjilEndKBM:        dates.Ganjil.EndKBM,
+		SemGanjilEndAssessment: dates.Ganjil.Assessment,
+		SemGanjilStatus:        SemStatusNotActive,
+		SemGenapStartDate:      dates.Genap.Start,
+		SemGenapEndKBM:         dates.Genap.EndKBM,
+		SemGenapEndAssessment:  dates.Genap.Assessment,
+		SemGenapStatus:         SemStatusNotActive,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	}
+}
+
+// applyDatesToEntity menerapkan data tanggal hasil validasi ke entity yang sudah ada (untuk Update).
+func applyDatesToEntity(existing *AcademicYear, req AcademicYearRequest, dates *parsedDates) {
+	existing.Year = req.Year
+	existing.StartDate = dates.StartDate
+	existing.EndDate = dates.EndDate
+	existing.SemGanjilStartDate = dates.Ganjil.Start
+	existing.SemGanjilEndKBM = dates.Ganjil.EndKBM
+	existing.SemGanjilEndAssessment = dates.Ganjil.Assessment
+	existing.SemGenapStartDate = dates.Genap.Start
+	existing.SemGenapEndKBM = dates.Genap.EndKBM
+	existing.SemGenapEndAssessment = dates.Genap.Assessment
+	existing.UpdatedAt = time.Now()
+}
+
+func mapEntityToDTO(y *AcademicYear) *AcademicYearResponse {
+	activeSemesterName := "-"
+	if y.Status == StatusActive {
+		if y.SemGanjilStatus == SemStatusActive || y.SemGanjilStatus == SemStatusAssessment || y.SemGanjilStatus == SemStatusReadyToClose {
+			activeSemesterName = SemesterOddLabel
+		} else if y.SemGenapStatus == SemStatusActive || y.SemGenapStatus == SemStatusAssessment || y.SemGenapStatus == SemStatusReadyToClose {
+			activeSemesterName = SemesterEvenLabel
+		}
+	}
+
+	return &AcademicYearResponse{
+		ID:        y.ID,
+		Year:      y.Year,
+		StartDate: formatDate(y.StartDate),
+		EndDate:   formatDate(y.EndDate),
+		Status:    y.Status,
+		IsActive:  y.Status == StatusActive,
+		Semester:  activeSemesterName,
+		SemesterGanjil: SemesterData{
+			StartDate:     formatNullDate(y.SemGanjilStartDate),
+			EndKBM:        formatNullDate(y.SemGanjilEndKBM),
+			EndAssessment: formatNullDate(y.SemGanjilEndAssessment),
+			Status:        y.SemGanjilStatus,
+		},
+		SemesterGenap: SemesterData{
+			StartDate:     formatNullDate(y.SemGenapStartDate),
+			EndKBM:        formatNullDate(y.SemGenapEndKBM),
+			EndAssessment: formatNullDate(y.SemGenapEndAssessment),
+			Status:        y.SemGenapStatus,
+		},
+		CreatedAt: y.CreatedAt,
+		UpdatedAt: y.UpdatedAt,
+	}
+}
+
+// --- Service Methods ---
+
 func (s *service) GetAll(ctx context.Context) ([]*AcademicYearResponse, error) {
 	years, err := s.repo.FindAll(ctx)
 	if err != nil {
@@ -96,6 +171,16 @@ func (s *service) GetByID(ctx context.Context, id string) (*AcademicYearResponse
 }
 
 func (s *service) Create(ctx context.Context, req AcademicYearRequest) (*AcademicYearResponse, error) {
+	// 1. Cek apakah ada draft yang menggantung
+	draftExists, err := s.repo.CheckDraftExists(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if draftExists {
+		return nil, ErrDraftExists
+	}
+
+	// 2. Cek duplikat
 	existingID, err := s.repo.GetIDByYear(ctx, req.Year)
 	if err != nil && !errors.Is(err, ErrAcademicYearNotFound) {
 		slog.Error("Failed to check unique year", "error", err)
@@ -105,64 +190,16 @@ func (s *service) Create(ctx context.Context, req AcademicYearRequest) (*Academi
 		return nil, ErrAcademicYearExists
 	}
 
-	startDate, err := parseDate(req.StartDate)
-	if err != nil {
-		return nil, ErrInvalidDateFormat
-	}
-	endDate, err := parseDate(req.EndDate)
-	if err != nil {
-		return nil, ErrInvalidDateFormat
-	}
-
-	if endDate.Before(startDate) {
-		return nil, ErrInvalidDate
-	}
-
-	ganjilStart, err := parseNullDate(req.SemesterGanjilStart)
-	if err != nil {
-		return nil, err
-	}
-	ganjilEndKBM, err := parseNullDate(req.SemesterGanjilKbm)
-	if err != nil {
-		return nil, err
-	}
-	ganjilEndAssesment, err := parseNullDate(req.SemesterGanjilAssessment)
+	// 2. Validasi + Parse (satu pintu)
+	dates, err := validateAndParseRequest(req)
 	if err != nil {
 		return nil, err
 	}
 
-	genapStart, err := parseNullDate(req.SemesterGenapStart)
-	if err != nil {
-		return nil, err
-	}
-	genapEndKBM, err := parseNullDate(req.SemesterGenapKbm)
-	if err != nil {
-		return nil, err
-	}
-	genapEndAssessment, err := parseNullDate(req.SemesterGenapAssessment)
-	if err != nil {
-		return nil, err
-	}
+	// 3. Build entity
+	ay := buildEntity(req, dates)
 
-	now := time.Now()
-	ay := &AcademicYear{
-		ID:                     uuid.New().String(),
-		Year:                   req.Year,
-		StartDate:              startDate,
-		EndDate:                endDate,
-		Status:                 StatusDraft,
-		SemGanjilStartDate:     ganjilStart,
-		SemGanjilEndKBM:        ganjilEndKBM,
-		SemGanjilEndAssessment: ganjilEndAssesment,
-		SemGanjilStatus:        SemStatusNotActive,
-		SemGenapStartDate:      genapStart,
-		SemGenapEndKBM:         genapEndKBM,
-		SemGenapEndAssessment:  genapEndAssessment,
-		SemGenapStatus:         SemStatusNotActive,
-		CreatedAt:              now,
-		UpdatedAt:              now,
-	}
-
+	// 4. Simpan
 	if err := s.repo.Create(ctx, ay); err != nil {
 		slog.Error("Failed to create academic year", "error", err)
 		return nil, ErrSystemFail
@@ -172,6 +209,7 @@ func (s *service) Create(ctx context.Context, req AcademicYearRequest) (*Academi
 }
 
 func (s *service) Update(ctx context.Context, id string, req AcademicYearRequest) (*AcademicYearResponse, error) {
+	// 1. Ambil data existing
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrAcademicYearNotFound) {
@@ -181,6 +219,7 @@ func (s *service) Update(ctx context.Context, id string, req AcademicYearRequest
 		return nil, ErrSystemFail
 	}
 
+	// 2. Cek duplikat jika year berubah
 	if req.Year != existing.Year {
 		existingID, err := s.repo.GetIDByYear(ctx, req.Year)
 		if err != nil && !errors.Is(err, ErrAcademicYearNotFound) {
@@ -192,56 +231,16 @@ func (s *service) Update(ctx context.Context, id string, req AcademicYearRequest
 		}
 	}
 
-	startDate, err := parseDate(req.StartDate)
-	if err != nil {
-		return nil, ErrInvalidDateFormat
-	}
-	endDate, err := parseDate(req.EndDate)
-	if err != nil {
-		return nil, ErrInvalidDateFormat
-	}
-
-	if endDate.Before(startDate) {
-		return nil, ErrInvalidDate
-	}
-
-	ganjilStart, err := parseNullDate(req.SemesterGanjilStart)
-	if err != nil {
-		return nil, err
-	}
-	ganjilEndKBM, err := parseNullDate(req.SemesterGanjilKbm)
-	if err != nil {
-		return nil, err
-	}
-	ganjilEndAssesment, err := parseNullDate(req.SemesterGanjilAssessment)
+	// 3. Validasi + Parse (satu pintu)
+	dates, err := validateAndParseRequest(req)
 	if err != nil {
 		return nil, err
 	}
 
-	genapStart, err := parseNullDate(req.SemesterGenapStart)
-	if err != nil {
-		return nil, err
-	}
-	genapEndKBM, err := parseNullDate(req.SemesterGenapKbm)
-	if err != nil {
-		return nil, err
-	}
-	genapEndAssessment, err := parseNullDate(req.SemesterGenapAssessment)
-	if err != nil {
-		return nil, err
-	}
+	// 4. Terapkan perubahan ke entity
+	applyDatesToEntity(existing, req, dates)
 
-	existing.Year = req.Year
-	existing.StartDate = startDate
-	existing.EndDate = endDate
-	existing.SemGanjilStartDate = ganjilStart
-	existing.SemGanjilEndKBM = ganjilEndKBM
-	existing.SemGanjilEndAssessment = ganjilEndAssesment
-	existing.SemGenapStartDate = genapStart
-	existing.SemGenapEndKBM = genapEndKBM
-	existing.SemGenapEndAssessment = genapEndAssessment
-	existing.UpdatedAt = time.Now()
-
+	// 5. Simpan
 	if err := s.repo.Update(ctx, existing); err != nil {
 		slog.Error("Failed to update academic year", "error", err)
 		return nil, ErrSystemFail
@@ -286,9 +285,9 @@ func (s *service) UpdateSemesterStatus(ctx context.Context, id string, req Semes
 		return nil, ErrInvalidSemesterStatus
 	}
 
-	if req.Semester == SemesterOdd {
+	if req.Semester == SemesterOddKey {
 		existing.SemGanjilStatus = req.Status
-	} else if req.Semester == SemesterEven {
+	} else if req.Semester == SemesterEvenKey {
 		existing.SemGenapStatus = req.Status
 	}
 	existing.UpdatedAt = time.Now()
@@ -311,13 +310,13 @@ func (s *service) CloseSemester(ctx context.Context, id string, req CloseSemeste
 		return nil, ErrSystemFail
 	}
 
-	if req.Semester == SemesterOdd {
+	if req.Semester == SemesterOddKey {
 		if existing.SemGanjilStatus == SemStatusNotActive || existing.SemGanjilStatus == SemStatusLocked {
 			return nil, ErrSemesterNotActive
 		}
 		existing.SemGanjilStatus = SemStatusLocked
 		existing.SemGenapStatus = SemStatusActive
-	} else if req.Semester == SemesterEven {
+	} else if req.Semester == SemesterEvenKey {
 		if existing.SemGenapStatus == SemStatusNotActive || existing.SemGenapStatus == SemStatusLocked {
 			return nil, ErrSemesterNotActive
 		}
@@ -354,39 +353,4 @@ func (s *service) Delete(ctx context.Context, id string) error {
 	}
 
 	return nil
-}
-
-func mapEntityToDTO(y *AcademicYear) *AcademicYearResponse {
-	activeSemesterName := "-"
-	if y.Status == StatusActive {
-		if y.SemGanjilStatus == SemStatusActive || y.SemGanjilStatus == SemStatusAssessment || y.SemGanjilStatus == SemStatusReadyToClose {
-			activeSemesterName = "GANJIL"
-		} else if y.SemGenapStatus == SemStatusActive || y.SemGenapStatus == SemStatusAssessment || y.SemGenapStatus == SemStatusReadyToClose {
-			activeSemesterName = "GENAP"
-		}
-	}
-
-	return &AcademicYearResponse{
-		ID:        y.ID,
-		Year:      y.Year,
-		StartDate: formatDate(y.StartDate),
-		EndDate:   formatDate(y.EndDate),
-		Status:    y.Status,
-		IsActive:  y.Status == StatusActive,
-		Semester:  activeSemesterName,
-		SemesterGanjil: SemesterData{
-			StartDate:     formatNullDate(y.SemGanjilStartDate),
-			EndKBM:        formatNullDate(y.SemGanjilEndKBM),
-			EndAssessment: formatNullDate(y.SemGanjilEndAssessment),
-			Status:        y.SemGanjilStatus,
-		},
-		SemesterGenap: SemesterData{
-			StartDate:     formatNullDate(y.SemGenapStartDate),
-			EndKBM:        formatNullDate(y.SemGenapEndKBM),
-			EndAssessment: formatNullDate(y.SemGenapEndAssessment),
-			Status:        y.SemGenapStatus,
-		},
-		CreatedAt: y.CreatedAt,
-		UpdatedAt: y.UpdatedAt,
-	}
 }

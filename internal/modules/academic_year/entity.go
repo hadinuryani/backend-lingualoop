@@ -35,6 +35,9 @@ const (
 	SemStatusReadyToClose = "Siap Ditutup"
 	SemStatusLocked       = "Terkunci"
 
-	SemesterOdd  = "ganjil"
-	SemesterEven = "genap"
+	SemesterOddKey  = "ganjil"
+	SemesterEvenKey = "genap"
+
+	SemesterOddLabel  = "GANJIL"
+	SemesterEvenLabel = "GENAP"
 )
