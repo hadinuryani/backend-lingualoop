@@ -5,11 +5,11 @@ CREATE TABLE school_settings (
     school_address TEXT,
     school_phone VARCHAR(50),
     school_email VARCHAR(100),
-    school_logo_file_id VARCHAR(36) NULL,
-    education_logo_file_id VARCHAR(36) NULL,
+    school_logo_file_id CHAR(36) NULL,
+    education_logo_file_id CHAR(36) NULL,
     principal_name VARCHAR(100),
     principal_nip VARCHAR(50),
-    principal_signature_file_id VARCHAR(36) NULL,
+    principal_signature_file_id CHAR(36) NULL,
     max_students_per_class INT DEFAULT 36,
     grading_system VARCHAR(20) DEFAULT 'numeric',
     passing_grade INT DEFAULT 75,
@@ -23,7 +23,7 @@ CREATE TABLE school_settings (
     FOREIGN KEY (school_logo_file_id) REFERENCES files(id) ON DELETE SET NULL,
     FOREIGN KEY (education_logo_file_id) REFERENCES files(id) ON DELETE SET NULL,
     FOREIGN KEY (principal_signature_file_id) REFERENCES files(id) ON DELETE SET NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert the default config row
 INSERT INTO school_settings (
