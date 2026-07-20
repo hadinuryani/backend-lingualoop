@@ -87,6 +87,34 @@ definitions:
     - semester
     - status
     type: object
+  academic_year.TemplateData:
+    properties:
+      end_date:
+        type: string
+      semester_ganjil_assessment:
+        type: string
+      semester_ganjil_kbm:
+        type: string
+      semester_ganjil_start:
+        type: string
+      semester_genap_assessment:
+        type: string
+      semester_genap_kbm:
+        type: string
+      semester_genap_start:
+        type: string
+      start_date:
+        type: string
+      year:
+        type: string
+    type: object
+  academic_year.TemplateResponse:
+    properties:
+      source_year:
+        type: string
+      template:
+        $ref: '#/definitions/academic_year.TemplateData'
+    type: object
   auth.LoginRequest:
     properties:
       password:
@@ -130,9 +158,9 @@ definitions:
       count:
         minimum: 1
         type: integer
-      level_ids:
+      grade_levels:
         items:
-          type: string
+          type: integer
         minItems: 1
         type: array
       major_code:
@@ -143,7 +171,7 @@ definitions:
     required:
     - academic_year_id
     - count
-    - level_ids
+    - grade_levels
     - major_code
     - major_id
     type: object
@@ -154,9 +182,17 @@ definitions:
       capacity:
         type: integer
       class_name:
+        description: Otomatis dibentuk backend, tapi field dipertahankan jika frontend
+          masih mengirim
         type: string
+      class_number:
+        minimum: 1
+        type: integer
       classroom:
         type: string
+      grade_level:
+        minimum: 1
+        type: integer
       homeroom_teacher_id:
         type: string
       level_id:
@@ -165,7 +201,8 @@ definitions:
         type: string
     required:
     - academic_year_id
-    - class_name
+    - class_number
+    - grade_level
     - level_id
     - major_id
     type: object
@@ -295,6 +332,9 @@ definitions:
         type: string
       description:
         type: string
+      logo_file_id:
+        description: Link to files.id
+        type: string
       name:
         type: string
     required:
@@ -311,9 +351,74 @@ definitions:
         type: string
       id:
         type: string
+      logo_url:
+        type: string
       name:
         type: string
       updated_at:
+        type: string
+    type: object
+  region.CityResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      province_id:
+        type: integer
+      province_name:
+        type: string
+    type: object
+  region.DistrictResponse:
+    properties:
+      city_id:
+        type: integer
+      city_name:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  region.PostalCodeResponse:
+    properties:
+      city_id:
+        type: integer
+      city_name:
+        type: string
+      district_id:
+        type: integer
+      district_name:
+        type: string
+      id:
+        type: integer
+      postal_code:
+        type: string
+      province_id:
+        type: integer
+      province_name:
+        type: string
+      subdistrict_id:
+        type: integer
+      subdistrict_name:
+        type: string
+    type: object
+  region.ProvinceResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  region.SubdistrictResponse:
+    properties:
+      district_id:
+        type: integer
+      district_name:
+        type: string
+      id:
+        type: integer
+      name:
         type: string
     type: object
   response.DefaultResponse:
@@ -829,6 +934,35 @@ paths:
       summary: Update semester status
       tags:
       - Academic Years
+  /academic-years/template:
+    get:
+      description: Generate a template for the next academic year with dates shifted
+        by +1 year. Fails if a draft already exists.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/academic_year.TemplateResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get academic year template
+      tags:
+      - Academic Years
   /auth/login:
     post:
       consumes:
@@ -1266,6 +1400,384 @@ paths:
       summary: Update Major
       tags:
       - Majors
+  /region/cities/{id}:
+    get:
+      description: Retrieve city detail by ID
+      parameters:
+      - description: City ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/region.CityResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get City by ID
+      tags:
+      - Region
+  /region/cities/{id}/districts:
+    get:
+      description: Retrieve all districts within a city. Supports optional search
+        by name.
+      parameters:
+      - description: City ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Search district by name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.DistrictResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Districts by City ID
+      tags:
+      - Region
+  /region/districts/{id}:
+    get:
+      description: Retrieve district detail by ID
+      parameters:
+      - description: District ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/region.DistrictResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get District by ID
+      tags:
+      - Region
+  /region/districts/{id}/subdistricts:
+    get:
+      description: Retrieve all subdistricts/villages within a district. Supports
+        optional search by name.
+      parameters:
+      - description: District ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Search subdistrict by name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.SubdistrictResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Subdistricts by District ID
+      tags:
+      - Region
+  /region/postal-codes/search:
+    get:
+      description: Search locations by postal code (minimum 3 characters)
+      parameters:
+      - description: Postal code to search (min 3 chars)
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.PostalCodeResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Search by Postal Code
+      tags:
+      - Region
+  /region/provinces:
+    get:
+      description: Retrieve a list of all provinces. Supports optional search by name.
+      parameters:
+      - description: Search province by name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.ProvinceResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get All Provinces
+      tags:
+      - Region
+  /region/provinces/{id}:
+    get:
+      description: Retrieve province detail by ID
+      parameters:
+      - description: Province ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/region.ProvinceResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Province by ID
+      tags:
+      - Region
+  /region/provinces/{id}/cities:
+    get:
+      description: Retrieve all cities/regencies within a province. Supports optional
+        search by name.
+      parameters:
+      - description: Province ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Search city by name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.CityResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Cities by Province ID
+      tags:
+      - Region
+  /region/subdistricts/{id}:
+    get:
+      description: Retrieve subdistrict detail by ID
+      parameters:
+      - description: Subdistrict ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/region.SubdistrictResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Subdistrict by ID
+      tags:
+      - Region
+  /region/subdistricts/{id}/postal-codes:
+    get:
+      description: Retrieve postal codes for a subdistrict
+      parameters:
+      - description: Subdistrict ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.DefaultResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/region.PostalCodeResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.DefaultResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Postal Codes by Subdistrict ID
+      tags:
+      - Region
   /students:
     get:
       description: Get a list of all students

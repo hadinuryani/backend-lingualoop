@@ -122,6 +122,55 @@
                 }
             }
         },
+        "/academic-years/template": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a template for the next academic year with dates shifted by +1 year. Fails if a draft already exists.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Academic Years"
+                ],
+                "summary": "Get academic year template",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/academic_year.TemplateResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/academic-years/{id}": {
             "get": {
                 "security": [
@@ -1256,6 +1305,639 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/cities/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve city detail by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get City by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "City ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/region.CityResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/cities/{id}/districts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve all districts within a city. Supports optional search by name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Districts by City ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "City ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search district by name",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.DistrictResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/districts/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve district detail by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get District by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "District ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/region.DistrictResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/districts/{id}/subdistricts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve all subdistricts/villages within a district. Supports optional search by name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Subdistricts by District ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "District ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search subdistrict by name",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.SubdistrictResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/postal-codes/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Search locations by postal code (minimum 3 characters)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Search by Postal Code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Postal code to search (min 3 chars)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.PostalCodeResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/provinces": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a list of all provinces. Supports optional search by name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get All Provinces",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search province by name",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.ProvinceResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/provinces/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve province detail by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Province by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Province ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/region.ProvinceResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/provinces/{id}/cities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve all cities/regencies within a province. Supports optional search by name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Cities by Province ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Province ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search city by name",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.CityResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/subdistricts/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve subdistrict detail by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Subdistrict by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Subdistrict ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/region.SubdistrictResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.DefaultResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/subdistricts/{id}/postal-codes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve postal codes for a subdistrict",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Region"
+                ],
+                "summary": "Get Postal Codes by Subdistrict ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Subdistrict ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.DefaultResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/region.PostalCodeResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.DefaultResponse"
                         }
@@ -2456,6 +3138,49 @@
                 }
             }
         },
+        "academic_year.TemplateData": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "type": "string"
+                },
+                "semester_ganjil_assessment": {
+                    "type": "string"
+                },
+                "semester_ganjil_kbm": {
+                    "type": "string"
+                },
+                "semester_ganjil_start": {
+                    "type": "string"
+                },
+                "semester_genap_assessment": {
+                    "type": "string"
+                },
+                "semester_genap_kbm": {
+                    "type": "string"
+                },
+                "semester_genap_start": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "string"
+                }
+            }
+        },
+        "academic_year.TemplateResponse": {
+            "type": "object",
+            "properties": {
+                "source_year": {
+                    "type": "string"
+                },
+                "template": {
+                    "$ref": "#/definitions/academic_year.TemplateData"
+                }
+            }
+        },
         "auth.LoginRequest": {
             "type": "object",
             "required": [
@@ -2513,7 +3238,7 @@
             "required": [
                 "academic_year_id",
                 "count",
-                "level_ids",
+                "grade_levels",
                 "major_code",
                 "major_id"
             ],
@@ -2528,11 +3253,11 @@
                     "type": "integer",
                     "minimum": 1
                 },
-                "level_ids": {
+                "grade_levels": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
-                        "type": "string"
+                        "type": "integer"
                     }
                 },
                 "major_code": {
@@ -2548,7 +3273,8 @@
             "type": "object",
             "required": [
                 "academic_year_id",
-                "class_name",
+                "class_number",
+                "grade_level",
                 "level_id",
                 "major_id"
             ],
@@ -2560,10 +3286,19 @@
                     "type": "integer"
                 },
                 "class_name": {
+                    "description": "Otomatis dibentuk backend, tapi field dipertahankan jika frontend masih mengirim",
                     "type": "string"
+                },
+                "class_number": {
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "classroom": {
                     "type": "string"
+                },
+                "grade_level": {
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "homeroom_teacher_id": {
                     "type": "string"
@@ -2777,6 +3512,10 @@
                 "description": {
                     "type": "string"
                 },
+                "logo_file_id": {
+                    "description": "Link to files.id",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
@@ -2797,10 +3536,110 @@
                 "id": {
                     "type": "string"
                 },
+                "logo_url": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "region.CityResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "province_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "region.DistrictResponse": {
+            "type": "object",
+            "properties": {
+                "city_id": {
+                    "type": "integer"
+                },
+                "city_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "region.PostalCodeResponse": {
+            "type": "object",
+            "properties": {
+                "city_id": {
+                    "type": "integer"
+                },
+                "city_name": {
+                    "type": "string"
+                },
+                "district_id": {
+                    "type": "integer"
+                },
+                "district_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "postal_code": {
+                    "type": "string"
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "province_name": {
+                    "type": "string"
+                },
+                "subdistrict_id": {
+                    "type": "integer"
+                },
+                "subdistrict_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "region.ProvinceResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "region.SubdistrictResponse": {
+            "type": "object",
+            "properties": {
+                "district_id": {
+                    "type": "integer"
+                },
+                "district_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
                     "type": "string"
                 }
             }
