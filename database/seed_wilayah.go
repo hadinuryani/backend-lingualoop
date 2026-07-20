@@ -109,11 +109,11 @@ func SeedWilayah(ctx context.Context, db *sql.DB, csvBaseDir string) error {
 		{
 			name:      "Kode Pos",
 			tableName: "postal_codes",
-			columns:   "(id, subdistrict_id, postal_code)",
+			columns:   "(id, subdistrict_id, district_id, city_id, province_id, postal_code)",
 			csvFile:   "postal_code.csv",
 			mapper: func(record []string) ([]any, error) {
-				if len(record) < 3 {
-					return nil, fmt.Errorf("kolom kurang dari 3")
+				if len(record) < 6 {
+					return nil, fmt.Errorf("kolom kurang dari 6")
 				}
 				id, err := strconv.Atoi(strings.TrimSpace(record[0]))
 				if err != nil {
@@ -123,11 +123,20 @@ func SeedWilayah(ctx context.Context, db *sql.DB, csvBaseDir string) error {
 				if err != nil {
 					return nil, err
 				}
-				postalCode, err := strconv.Atoi(strings.TrimSpace(record[2]))
+				distID, err := strconv.Atoi(strings.TrimSpace(record[2]))
 				if err != nil {
 					return nil, err
 				}
-				return []any{id, subdistID, postalCode}, nil
+				cityID, err := strconv.Atoi(strings.TrimSpace(record[3]))
+				if err != nil {
+					return nil, err
+				}
+				provID, err := strconv.Atoi(strings.TrimSpace(record[4]))
+				if err != nil {
+					return nil, err
+				}
+				postalCode := strings.TrimSpace(record[5])
+				return []any{id, subdistID, distID, cityID, provID, postalCode}, nil
 			},
 		},
 	}
