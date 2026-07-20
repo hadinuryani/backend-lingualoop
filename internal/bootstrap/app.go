@@ -18,6 +18,7 @@ import (
 	"backend-lingualoop/internal/modules/file"
 	"backend-lingualoop/internal/modules/schedule"
 	"backend-lingualoop/internal/modules/settings"
+	"backend-lingualoop/internal/modules/teacher_portal"
 	"backend-lingualoop/pkg/jwt"
 	"backend-lingualoop/pkg/storage"
 
@@ -72,6 +73,13 @@ func SetupApp(db *sql.DB, isProduction bool) *gin.Engine {
 		dashboard.RegisterRoute(adminProtected, db)
 		region.RegisterRoute(adminProtected, db)
 		settings.RegisterRoute(adminProtected, db, store)
+
+		// Register Protected Teacher Routes
+		teacherProtected := v1.Group("/teacher-portal")
+		teacherProtected.Use(middleware.RequireAuth(jwtManager, db))
+		teacherProtected.Use(middleware.RequireRole("teacher"))
+
+		teacher_portal.RegisterRoute(teacherProtected, db)
 
 	}
 
